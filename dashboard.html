@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d1117">
+<title>Tablero — Lavadero Solbayres</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:      #0d1117;
+  --bg2:     #161b22;
+  --bg3:     #1e242d;
+  --border:  #2a3140;
+  --text:    #e6edf3;
+  --muted:   #6e7f96;
+  --gold:    #E8A020;
+  --gold2:   #c8861a;
+  --success: #3fb950;
+  --warning: #d29922;
+  --danger:  #f85149;
+  --radius:  10px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Barlow', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ── HEADER ── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.logo-wrap { line-height: 1; }
+.logo {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+.logo span { color: var(--gold); }
+.logo-sub {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .25em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-top: 2px;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.last-update {
+  font-size: 12px;
+  color: var(--muted);
+  font-family: 'Barlow Condensed', sans-serif;
+  letter-spacing: .04em;
+}
+.last-update span { color: var(--gold); }
+.btn-refresh {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 7px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all .15s;
+}
+.btn-refresh:hover { border-color: var(--gold); color: var(--gold); }
+.btn-refresh svg { transition: transform .4s; }
+.btn-refresh.loading svg { animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.nav-back {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  transition: all .15s;
+}
+.nav-back:hover { color: var(--text); border-color: var(--text); }
+
+/* ── MAIN GRID ── */
+main {
+  padding: 20px 24px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1800px;
+  margin: 0 auto;
+}
+
+/* ── KPI STRIP ── */
+.kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+.kpi {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.kpi-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.kpi-num {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 42px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text);
+}
+.kpi.danger  { border-color: rgba(248,81,73,.35);  }
+.kpi.warning { border-color: rgba(210,153,34,.35); }
+.kpi.ok      { border-color: rgba(63,185,80,.35);  }
+.kpi.neutral { border-color: rgba(232,160,32,.25); }
+.kpi.danger  .kpi-num { color: var(--danger);  }
+.kpi.warning .kpi-num { color: var(--warning); }
+.kpi.ok      .kpi-num { color: var(--success); }
+.kpi.neutral .kpi-num { color: var(--gold);    }
+
+/* ── BODY GRID ── */
+.body-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 20px;
+  align-items: start;
+}
+
+/* ── SECCIÓN TÍTULOS ── */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.section-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.section-count {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+
+/* ── GRILLA DE UNIDADES ── */
+.unidades-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.unidad-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  border-left: 4px solid var(--border);
+  transition: border-color .2s;
+  position: relative;
+  overflow: hidden;
+}
+.unidad-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: .04;
+  pointer-events: none;
+}
+.unidad-card.vencido  { border-left-color: var(--danger);  }
+.unidad-card.proximo  { border-left-color: var(--warning); }
+.unidad-card.al_dia   { border-left-color: var(--success); }
+.unidad-card.vencido::before  { background: var(--danger);  }
+.unidad-card.proximo::before  { background: var(--warning); }
+.unidad-card.al_dia::before   { background: var(--success); }
+
+.unidad-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.unidad-interno {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text);
+}
+.unidad-modelo {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 3px;
+  font-weight: 500;
+}
+.estado-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+.vencido .estado-dot  { background: var(--danger);  box-shadow: 0 0 6px var(--danger);  }
+.proximo .estado-dot  { background: var(--warning); box-shadow: 0 0 6px var(--warning); }
+.al_dia  .estado-dot  { background: var(--success); box-shadow: 0 0 6px var(--success); }
+
+/* Tags de lavado pendiente en la card */
+.lavados-pendientes {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.lav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.lav-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lav-dias {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.dias-vencido { color: var(--danger);  }
+.dias-proximo { color: var(--warning); }
+.dias-aldia   { color: var(--success); }
+
+/* ── PANEL CRÍTICOS ── */
+.criticos-panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  position: sticky;
+  top: 80px;
+}
+.criticos-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg3);
+}
+.criticos-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.criticos-subtitle {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.criticos-list { padding: 10px 0; max-height: calc(100vh - 200px); overflow-y: auto; }
+
+.critico-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+  transition: background .15s;
+}
+.critico-item:last-child { border-bottom: none; }
+.critico-item:hover { background: var(--bg3); }
+
+.critico-rank {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--muted);
+  min-width: 24px;
+  line-height: 1.2;
+}
+.critico-info { flex: 1; min-width: 0; }
+.critico-interno {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+.critico-modelo {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.critico-lavados { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+.critico-lav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.critico-lav-nombre {
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.critico-dias {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── PULSO en vencidos ── */
+@keyframes pulse-danger {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .6; }
+}
+.unidad-card.vencido .estado-dot {
+  animation: pulse-danger 2s ease-in-out infinite;
+}
+
+/* ── LOADING / EMPTY ── */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg2) 25%, var(--bg3) 50%, var(--bg2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+  border-radius: 6px;
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--muted);
+}
+.empty-icon {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--border);
+  margin-bottom: 12px;
+}
+
+/* ── BARRA DE PROGRESO auto-refresh ── */
+.refresh-bar {
+  height: 2px;
+  background: var(--border);
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+}
+.refresh-bar-fill {
+  height: 100%;
+  background: var(--gold);
+  width: 100%;
+  transform-origin: left;
+  transition: transform linear;
+}
+
+/* ── FILTRO ESTADO ── */
+.estado-filters {
+  display: flex;
+  gap: 6px;
+}
+.estado-filter {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 5px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .15s;
+}
+.estado-filter.active-vencido { background: rgba(248,81,73,.15);  border-color: var(--danger);  color: var(--danger);  }
+.estado-filter.active-proximo { background: rgba(210,153,34,.15); border-color: var(--warning); color: var(--warning); }
+.estado-filter.active-aldia   { background: rgba(63,185,80,.15);  border-color: var(--success); color: var(--success); }
+.estado-filter.active-todos   { background: rgba(232,160,32,.12); border-color: var(--gold);    color: var(--gold);    }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 1100px) {
+  .body-grid { grid-template-columns: 1fr; }
+  .criticos-panel { position: static; }
+  .criticos-list { max-height: 400px; }
+  .kpi-strip { grid-template-columns: repeat(3, 1fr); }
+  .kpi-num { font-size: 34px; }
+}
+@media (max-width: 640px) {
+  header { padding: 12px 16px; }
+  main { padding: 14px 14px 40px; }
+  .kpi-strip { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .kpi-num { font-size: 30px; }
+  .unidades-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .unidad-interno { font-size: 22px; }
+  .body-grid { gap: 14px; }
+  .logo { font-size: 16px; }
+  .last-update { display: none; }
+}
+@media (max-width: 380px) {
+  .unidades-grid { grid-template-columns: 1fr; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-wrap">
+    <div class="logo">Lavadero <span>///</span> Solbayres</div>
+    <div class="logo-sub">Tablero operativo</div>
+  </div>
+  <div class="header-right">
+    <div class="last-update">Actualizado: <span id="txt-update">—</span></div>
+    <button class="btn-refresh" id="btn-refresh" onclick="cargar(true)">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+        <path d="M3 3v5h5"/>
+      </svg>
+      Actualizar
+    </button>
+    <a class="nav-back" href="index.html">← Registrar</a>
+  </div>
+</header>
+
+<main>
+  <!-- KPIs -->
+  <div class="kpi-strip" id="kpi-strip">
+    <div class="kpi neutral"><div class="kpi-label">Unidades activas</div><div class="kpi-num" id="kpi-unidades">—</div></div>
+    <div class="kpi neutral"><div class="kpi-label">Lavados hoy</div><div class="kpi-num" id="kpi-hoy">—</div></div>
+    <div class="kpi danger" ><div class="kpi-label">Vencidos</div><div class="kpi-num" id="kpi-vencidos">—</div></div>
+    <div class="kpi warning"><div class="kpi-label">Por vencer</div><div class="kpi-num" id="kpi-proximos">—</div></div>
+    <div class="kpi ok"     ><div class="kpi-label">Al día</div><div class="kpi-num" id="kpi-aldia">—</div></div>
+  </div>
+
+  <!-- Body -->
+  <div class="body-grid">
+
+    <!-- Grilla unidades -->
+    <div>
+      <div class="section-header">
+        <div class="section-title">Estado de flota</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="estado-filters" id="estado-filters">
+            <button class="estado-filter active-todos" onclick="setFiltro('todos',this)">Todos</button>
+            <button class="estado-filter" onclick="setFiltro('vencido',this)">Vencidos</button>
+            <button class="estado-filter" onclick="setFiltro('proximo',this)">Por vencer</button>
+            <button class="estado-filter" onclick="setFiltro('al_dia',this)">Al día</button>
+          </div>
+          <div class="section-count" id="count-unidades">—</div>
+        </div>
+      </div>
+      <div class="unidades-grid" id="unidades-grid">
+        <!-- skeleton -->
+        <div style="height:120px" class="skeleton"></div>
+        <div style="height:120px" class="skeleton"></div>
+        <div style="height:120px" class="skeleton"></div>
+        <div style="height:120px" class="skeleton"></div>
+        <div style="height:120px" class="skeleton"></div>
+        <div style="height:120px" class="skeleton"></div>
+      </div>
+    </div>
+
+    <!-- Panel críticos -->
+    <div>
+      <div class="section-header">
+        <div class="section-title">Unidades críticas</div>
+        <div class="section-count" id="count-criticos">—</div>
+      </div>
+      <div class="criticos-panel">
+        <div class="criticos-header">
+          <div class="criticos-title">Deadline al límite</div>
+          <div class="criticos-subtitle">Vencidas y próximas a vencer</div>
+        </div>
+        <div class="criticos-list" id="criticos-list">
+          <div style="height:60px;margin:10px 18px" class="skeleton"></div>
+          <div style="height:60px;margin:10px 18px" class="skeleton"></div>
+          <div style="height:60px;margin:10px 18px" class="skeleton"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<div class="refresh-bar"><div class="refresh-bar-fill" id="refresh-bar-fill"></div></div>
+
+<script>
+const API     = 'https://script.google.com/macros/s/AKfycbwOyQ0wEBDN1jwO2aJVugJU4zl4wYafxkjKf-dc6RqoKXbcy5E0VtTJBq5tjNOcQmtdMw/exec';
+const REFRESH = 5 * 60 * 1000; // 5 minutos
+
+let state = {
+  dashboard: null,
+  alertas:   [],
+  tipos:     [],
+  filtro:    'todos',
+};
+
+let refreshTimer   = null;
+let barTimer       = null;
+
+// ── API ────────────────────────────────────────────────────────
+async function get(params) {
+  const res  = await fetch(API + '?' + new URLSearchParams(params));
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error);
+  return data.data;
+}
+
+// ── Carga principal ────────────────────────────────────────────
+async function cargar(manual = false) {
+  const btn = document.getElementById('btn-refresh');
+  btn.classList.add('loading');
+  clearTimeout(refreshTimer);
+  startBar();
+
+  try {
+    const [dash, alertas, tipos] = await Promise.all([
+      get({ path: 'dashboard', top_criticos: 20 }),
+      get({ path: 'alertas' }),
+      get({ path: 'tipos_lavado', action: 'list' }),
+    ]);
+
+    state.dashboard = dash;
+    state.alertas   = alertas;
+    state.tipos     = tipos;
+
+    renderKPIs();
+    renderGrilla();
+    renderCriticos();
+
+    const ahora = new Date();
+    document.getElementById('txt-update').textContent =
+      ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+
+  } catch(e) {
+    console.error(e);
+  } finally {
+    btn.classList.remove('loading');
+    refreshTimer = setTimeout(() => cargar(), REFRESH);
+  }
+}
+
+// ── Barra de progreso ──────────────────────────────────────────
+function startBar() {
+  const fill = document.getElementById('refresh-bar-fill');
+  fill.style.transition = 'none';
+  fill.style.transform  = 'scaleX(1)';
+  clearTimeout(barTimer);
+  barTimer = setTimeout(() => {
+    fill.style.transition = `transform ${REFRESH}ms linear`;
+    fill.style.transform  = 'scaleX(0)';
+  }, 50);
+}
+
+// ── KPIs ───────────────────────────────────────────────────────
+function renderKPIs() {
+  const d = state.dashboard;
+  document.getElementById('kpi-unidades').textContent = d.kpis.total_unidades;
+  document.getElementById('kpi-hoy').textContent      = d.kpis.lavados_hoy;
+  document.getElementById('kpi-vencidos').textContent = d.kpis.vencidos;
+  document.getElementById('kpi-proximos').textContent = d.kpis.proximos;
+  document.getElementById('kpi-aldia').textContent    = d.kpis.al_dia;
+}
+
+// ── Filtro ─────────────────────────────────────────────────────
+function setFiltro(f, el) {
+  state.filtro = f;
+  document.querySelectorAll('.estado-filter').forEach(b => b.className = 'estado-filter');
+  const clases = { todos:'active-todos', vencido:'active-vencido', proximo:'active-proximo', al_dia:'active-aldia' };
+  el.classList.add(clases[f] || 'active-todos');
+  renderGrilla();
+}
+
+// ── Grilla de unidades ─────────────────────────────────────────
+function renderGrilla() {
+  const grid = document.getElementById('unidades-grid');
+
+  // Agrupar alertas por unidad
+  const porUnidad = {};
+  state.alertas.forEach(a => {
+    const k = String(a.unidad_id);
+    if (!porUnidad[k]) {
+      porUnidad[k] = {
+        id:          a.unidad_id,
+        nro_interno: a.nro_interno,
+        modelo:      a.modelo_nombre,
+        lavados:     [],
+        peor:        'al_dia',
+      };
+    }
+    porUnidad[k].lavados.push(a);
+    const orden = { vencido: 0, proximo: 1, al_dia: 2 };
+    if ((orden[a.estado] ?? 2) < (orden[porUnidad[k].peor] ?? 2)) {
+      porUnidad[k].peor = a.estado;
+    }
+  });
+
+  let unidades = Object.values(porUnidad);
+
+  // Filtrar
+  if (state.filtro !== 'todos') {
+    unidades = unidades.filter(u => u.peor === state.filtro);
+  }
+
+  // Ordenar: peor estado primero, luego por interno
+  const ordenEstado = { vencido: 0, proximo: 1, al_dia: 2 };
+  unidades.sort((a, b) => {
+    const oe = (ordenEstado[a.peor] ?? 2) - (ordenEstado[b.peor] ?? 2);
+    if (oe !== 0) return oe;
+    return String(a.nro_interno).localeCompare(String(b.nro_interno), undefined, { numeric: true });
+  });
+
+  document.getElementById('count-unidades').textContent = unidades.length + ' unidades';
+
+  if (unidades.length === 0) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">✓</div><p>Sin unidades en este estado</p></div>`;
+    return;
+  }
+
+  grid.innerHTML = unidades.map(u => {
+    // Ordenar lavados por estado y días
+    const lavs = [...u.lavados].sort((a, b) => {
+      const oe = (ordenEstado[a.estado] ?? 2) - (ordenEstado[b.estado] ?? 2);
+      if (oe !== 0) return oe;
+      return (a.dias_restantes ?? -999) - (b.dias_restantes ?? -999);
+    });
+
+    // Solo los pendientes (vencidos + proximos) + al_dia resumido
+    const pendientes = lavs.filter(l => l.estado !== 'al_dia');
+    const alDia      = lavs.filter(l => l.estado === 'al_dia');
+
+    const rowsHTML = pendientes.map(l => lavRow(l)).join('');
+    const alDiaHTML = alDia.length > 0
+      ? `<div class="lav-row" style="margin-top:4px;padding-top:4px;border-top:1px solid var(--border)">
+           <span style="font-size:10px;color:var(--muted)">${alDia.length} lavado${alDia.length > 1 ? 's' : ''} al día</span>
+           <span style="color:var(--success);font-size:11px">✓</span>
+         </div>`
+      : '';
+
+    return `
+      <div class="unidad-card ${u.peor}">
+        <div class="unidad-header">
+          <div>
+            <div class="unidad-interno">${String(u.nro_interno).padStart(4,'0')}</div>
+            <div class="unidad-modelo">${u.modelo || '—'}</div>
+          </div>
+          <div class="estado-dot"></div>
+        </div>
+        <div class="lavados-pendientes">
+          ${rowsHTML}
+          ${alDiaHTML}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function lavRow(l) {
+  const tipo  = state.tipos.find(t => t.slug === l.tipo_lavado);
+  const color = tipo?.color_badge || '#6e7f96';
+  let diasTxt, diasClass;
+
+  if (l.dias_restantes === null) {
+    diasTxt   = 'Sin reg.';
+    diasClass = 'dias-vencido';
+  } else if (l.dias_restantes < 0) {
+    diasTxt   = `${Math.abs(l.dias_restantes)}d`;
+    diasClass = 'dias-vencido';
+  } else if (l.dias_restantes === 0) {
+    diasTxt   = 'Hoy';
+    diasClass = 'dias-proximo';
+  } else {
+    diasTxt   = `+${l.dias_restantes}d`;
+    diasClass = l.estado === 'proximo' ? 'dias-proximo' : 'dias-aldia';
+  }
+
+  return `
+    <div class="lav-row">
+      <span class="lav-badge" style="background:${color}22;color:${color};border:1px solid ${color}44">
+        ${l.tipo_nombre}
+      </span>
+      <span class="lav-dias ${diasClass}">${diasTxt}</span>
+    </div>
+  `;
+}
+
+// ── Panel críticos ─────────────────────────────────────────────
+function renderCriticos() {
+  const list = document.getElementById('criticos-list');
+
+  // Agrupar por unidad solo vencidos + proximos
+  const porUnidad = {};
+  state.alertas
+    .filter(a => a.estado !== 'al_dia')
+    .forEach(a => {
+      const k = String(a.unidad_id);
+      if (!porUnidad[k]) {
+        porUnidad[k] = {
+          nro_interno: a.nro_interno,
+          modelo:      a.modelo_nombre,
+          lavados:     [],
+          minDias:     Infinity,
+        };
+      }
+      porUnidad[k].lavados.push(a);
+      const d = a.dias_restantes ?? -9999;
+      if (d < porUnidad[k].minDias) porUnidad[k].minDias = d;
+    });
+
+  const criticos = Object.values(porUnidad)
+    .sort((a, b) => a.minDias - b.minDias)
+    .slice(0, 15);
+
+  document.getElementById('count-criticos').textContent = criticos.length;
+
+  if (criticos.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon" style="font-size:28px">✓</div><p style="font-size:13px">Todo al día</p></div>`;
+    return;
+  }
+
+  list.innerHTML = criticos.map((u, i) => {
+    const lavOrdenados = [...u.lavados].sort((a, b) =>
+      (a.dias_restantes ?? -9999) - (b.dias_restantes ?? -9999)
+    );
+
+    const lavsHTML = lavOrdenados.map(l => {
+      let diasTxt, col;
+      if (l.dias_restantes === null || l.dias_restantes < 0) {
+        diasTxt = l.dias_restantes !== null ? `${Math.abs(l.dias_restantes)}d vencido` : 'Sin reg.';
+        col = 'var(--danger)';
+      } else if (l.dias_restantes === 0) {
+        diasTxt = 'Vence hoy';
+        col = 'var(--warning)';
+      } else {
+        diasTxt = `${l.dias_restantes}d restantes`;
+        col = 'var(--warning)';
+      }
+      return `
+        <div class="critico-lav">
+          <span class="critico-lav-nombre">${l.tipo_nombre}</span>
+          <span class="critico-dias" style="color:${col}">${diasTxt}</span>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="critico-item">
+        <div class="critico-rank">${i + 1}</div>
+        <div class="critico-info">
+          <div class="critico-interno">${String(u.nro_interno).padStart(4,'0')}</div>
+          <div class="critico-modelo">${u.modelo || '—'}</div>
+          <div class="critico-lavados">${lavsHTML}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── Arrancar ───────────────────────────────────────────────────
+cargar();
+</script>
+</body>
+</html>
