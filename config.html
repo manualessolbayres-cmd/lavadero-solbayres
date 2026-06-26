@@ -269,7 +269,7 @@ nav{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px soli
 <div id="toast"></div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbwOyQ0wEBDN1jwO2aJVugJU4zl4wYafxkjKf-dc6RqoKXbcy5E0VtTJBq5tjNOcQmtdMw/exec';
+const API = 'https://script.google.com/macros/s/AKfycbywijxHTrjPok27q1hxCWYLGUNs8xkgY3KAmUbxT1gePMXINwwl6MyIG4GOytq74sjlrw/exec';
 
 const COLORES_TIPO = ['#4A90D9','#7B68EE','#F5A623','#50C878','#E74C3C','#1ABC9C','#9B59B6','#E67E22','#3498DB','#E91E8C'];
 
@@ -291,8 +291,8 @@ async function apig(params) {
   if (!d.ok) throw new Error(d.error);
   return d.data;
 }
-async function apip(body) {
-  const r = await fetch(API, { method:'POST', body:JSON.stringify(body), headers:{'Content-Type':'application/json'} });
+async function apip(params) {
+  const r = await fetch(API + '?' + new URLSearchParams(params));
   const d = await r.json();
   if (!d.ok) throw new Error(d.error);
   return d.data;

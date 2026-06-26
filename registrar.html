@@ -454,7 +454,7 @@
 
 <script>
 // ── Config ───────────────────────────────────────────────────
-const API = 'https://script.google.com/macros/s/AKfycbwOyQ0wEBDN1jwO2aJVugJU4zl4wYafxkjKf-dc6RqoKXbcy5E0VtTJBq5tjNOcQmtdMw/exec';
+const API = 'https://script.google.com/macros/s/AKfycbywijxHTrjPok27q1hxCWYLGUNs8xkgY3KAmUbxT1gePMXINwwl6MyIG4GOytq74sjlrw/exec';
 
 // ── Estado global ─────────────────────────────────────────────
 let state = {
@@ -481,12 +481,8 @@ async function api(params) {
   return data.data;
 }
 
-async function apiPost(body) {
-  const res = await fetch(API, {
-    method: 'POST',
-    body: JSON.stringify(body),
-    headers: { 'Content-Type': 'application/json' },
-  });
+async function apiPost(params) {
+  const res = await fetch(API + '?' + new URLSearchParams(params));
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || 'Error API');
   return data.data;
