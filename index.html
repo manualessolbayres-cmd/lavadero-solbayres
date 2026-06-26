@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#111318">
+<title>Lavadero — Solbayres</title>
+<style>
+  :root {
+    --bg:       #111318;
+    --bg2:      #1a1d24;
+    --bg3:      #22262f;
+    --border:   #2e323c;
+    --text:     #e8eaf0;
+    --muted:    #7a8094;
+    --accent:   #3b82f6;
+    --accent2:  #1d4ed8;
+    --success:  #22c55e;
+    --warning:  #f59e0b;
+    --danger:   #ef4444;
+    --radius:   12px;
+    --radius-sm:8px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Nav ── */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    height: 56px;
+  }
+  .nav-logo {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .nav-logo span { color: var(--text); }
+  .nav-tabs {
+    display: flex;
+    gap: 4px;
+  }
+  .nav-tab {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .nav-tab.active, .nav-tab:hover { color: var(--text); background: var(--bg3); }
+  .nav-tab.active { color: var(--accent); }
+
+  /* ── Pages ── */
+  .page { display: none; padding: 20px 16px 100px; max-width: 600px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 20px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 999;
+    transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+    white-space: nowrap;
+    box-shadow: 0 8px 32px rgba(0,0,0,.4);
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.ok   { border-color: var(--success); color: var(--success); }
+  #toast.fail { border-color: var(--danger);  color: var(--danger);  }
+
+  /* ── Loading overlay ── */
+  #loading {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px; z-index: 200;
+    transition: opacity .3s;
+  }
+  #loading.hidden { opacity: 0; pointer-events: none; }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Section header ── */
+  .section-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+    margin-top: 28px;
+  }
+  .section-title:first-child { margin-top: 0; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  /* ── Form elements ── */
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
+
+  select, input[type="text"], input[type="number"], textarea {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 16px;
+    padding: 13px 14px;
+    outline: none;
+    transition: border-color .15s;
+    -webkit-appearance: none;
+    appearance: none;
+    font-family: inherit;
+  }
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237a8094' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+  select:focus, input:focus, textarea:focus { border-color: var(--accent); }
+  textarea { resize: none; height: 80px; line-height: 1.5; }
+  .form-row { margin-bottom: 16px; }
+  select option { background: #22262f; }
+
+  /* ── Chips de tipo lavado ── */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+    background: var(--bg3);
+    color: var(--muted);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .chip.selected {
+    color: #fff;
+    border-color: transparent;
+  }
+  .chip:active { transform: scale(.95); }
+
+  /* ── Botones ── */
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%;
+    padding: 16px;
+    border-radius: var(--radius);
+    border: none;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+    font-family: inherit;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-primary:disabled { background: var(--bg3); color: var(--muted); cursor: not-allowed; transform: none; }
+  .btn-ghost { background: var(--bg3); color: var(--text); border: 1px solid var(--border); }
+  .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+  .btn-sm { padding: 8px 14px; font-size: 13px; width: auto; border-radius: var(--radius-sm); }
+
+  /* ── Turno selector ── */
+  .turno-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+  .turno-btn {
+    padding: 14px 8px;
+    border-radius: var(--radius-sm);
+    border: 2px solid var(--border);
+    background: var(--bg3);
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: all .15s;
+    font-family: inherit;
+  }
+  .turno-btn .turno-num { font-size: 22px; font-weight: 700; display: block; color: var(--text); line-height: 1.2; }
+  .turno-btn.selected { border-color: var(--accent); background: rgba(59,130,246,.12); color: var(--accent); }
+  .turno-btn.selected .turno-num { color: var(--accent); }
+  .turno-btn:active { transform: scale(.97); }
+
+  /* ── Historial ── */
+  .registro-item {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .reg-badge {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .reg-info { flex: 1; min-width: 0; }
+  .reg-titulo { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .reg-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .reg-fecha { font-size: 11px; color: var(--muted); text-align: right; flex-shrink: 0; }
+
+  /* ── Alertas ── */
+  .alerta-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 6px;
+    border-left: 3px solid transparent;
+  }
+  .alerta-item.vencido  { background: rgba(239,68,68,.08);  border-left-color: var(--danger);  }
+  .alerta-item.proximo  { background: rgba(245,158,11,.08);  border-left-color: var(--warning); }
+  .alerta-item.al_dia   { background: rgba(34,197,94,.06);   border-left-color: var(--success); }
+  .alerta-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .vencido .alerta-dot  { background: var(--danger); }
+  .proximo .alerta-dot  { background: var(--warning); }
+  .al_dia  .alerta-dot  { background: var(--success); }
+  .alerta-info { flex: 1; min-width: 0; }
+  .alerta-titulo { font-size: 13px; font-weight: 600; }
+  .alerta-sub    { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .alerta-dias   { font-size: 12px; font-weight: 700; text-align: right; flex-shrink: 0; }
+  .vencido .alerta-dias { color: var(--danger); }
+  .proximo .alerta-dias { color: var(--warning); }
+  .al_dia  .alerta-dias { color: var(--success); }
+
+  /* ── KPI strip ── */
+  .kpi-strip { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 20px; }
+  .kpi-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 12px; text-align: center; }
+  .kpi-num  { font-size: 28px; font-weight: 700; line-height: 1; }
+  .kpi-label{ font-size: 11px; color: var(--muted); margin-top: 4px; font-weight: 500; }
+  .kpi-card.danger  { border-color: rgba(239,68,68,.4);  }
+  .kpi-card.warning { border-color: rgba(245,158,11,.4); }
+  .kpi-card.ok      { border-color: rgba(34,197,94,.4);  }
+  .kpi-card.danger  .kpi-num { color: var(--danger);  }
+  .kpi-card.warning .kpi-num { color: var(--warning); }
+  .kpi-card.ok      .kpi-num { color: var(--success); }
+
+  /* ── Unidad selector con search ── */
+  .search-input {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text); font-size: 16px;
+    padding: 13px 14px 13px 40px; outline: none; font-family: inherit;
+    transition: border-color .15s;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-wrap { position: relative; }
+  .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+
+  .unidad-list { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; margin-top: 8px; }
+  .unidad-opt {
+    padding: 12px 14px; border-radius: var(--radius-sm);
+    background: var(--bg3); border: 2px solid var(--border);
+    cursor: pointer; font-size: 15px; font-weight: 600;
+    display: flex; align-items: center; justify-content: space-between;
+    transition: all .15s;
+  }
+  .unidad-opt:hover  { border-color: var(--accent); }
+  .unidad-opt.selected { border-color: var(--accent); background: rgba(59,130,246,.12); color: var(--accent); }
+  .unidad-opt .modelo { font-size: 11px; font-weight: 400; color: var(--muted); }
+
+  /* ── Confirmación ── */
+  .confirm-box {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px; margin-bottom: 20px;
+  }
+  .confirm-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .confirm-row:last-child { border-bottom: none; }
+  .confirm-key { font-size: 12px; color: var(--muted); }
+  .confirm-val { font-size: 14px; font-weight: 600; }
+
+  /* ── Filtro alertas ── */
+  .filter-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+  .filter-tab {
+    padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--bg3); color: var(--muted); font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: all .15s; font-family: inherit;
+  }
+  .filter-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ── Empty state ── */
+  .empty { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px; }
+  .empty-icon { font-size: 36px; margin-bottom: 12px; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p style="color:var(--muted);font-size:13px">Cargando datos...</p>
+</div>
+
+<div id="toast"></div>
+
+<nav>
+  <div class="nav-logo">Lavadero <span>·</span> Solbayres</div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('carga')">Registrar</button>
+    <button class="nav-tab" onclick="showPage('alertas')">Alertas</button>
+    <button class="nav-tab" onclick="showPage('historial')">Historial</button>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════
+     PÁGINA: CARGA
+══════════════════════════════════════════ -->
+<div class="page active" id="page-carga">
+
+  <p class="section-title">Unidad</p>
+  <div class="search-wrap form-row">
+    <svg class="search-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input class="search-input" type="text" id="search-unidad" placeholder="Buscar por interno (ej: 047)" oninput="filtrarUnidades(this.value)" autocomplete="off">
+  </div>
+  <div class="unidad-list" id="unidad-list"></div>
+
+  <div id="form-resto" style="display:none; margin-top: 8px;">
+
+    <p class="section-title">Tipo de lavado</p>
+    <div class="chips form-row" id="chips-lavado"></div>
+
+    <p class="section-title">Turno</p>
+    <div class="turno-grid form-row" id="turno-grid">
+      <button class="turno-btn" onclick="selTurno(1)">
+        <span class="turno-num">1</span>Mañana
+      </button>
+      <button class="turno-btn" onclick="selTurno(2)">
+        <span class="turno-num">2</span>Tarde
+      </button>
+      <button class="turno-btn" onclick="selTurno(3)">
+        <span class="turno-num">3</span>Noche
+      </button>
+    </div>
+
+    <p class="section-title">Supervisor</p>
+    <div class="form-row">
+      <select id="sel-supervisor">
+        <option value="">— Seleccioná el supervisor —</option>
+      </select>
+    </div>
+
+    <p class="section-title">Observaciones <span style="color:var(--muted);font-weight:400;font-size:11px">(opcional)</span></p>
+    <div class="form-row">
+      <textarea id="obs" placeholder="Detalles, anomalías, etc."></textarea>
+    </div>
+
+    <button class="btn btn-primary" id="btn-registrar" onclick="confirmarRegistro()" disabled>
+      Registrar lavado
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PÁGINA: ALERTAS
+══════════════════════════════════════════ -->
+<div class="page" id="page-alertas">
+
+  <div class="kpi-strip" id="kpi-strip">
+    <div class="kpi-card danger"><div class="kpi-num" id="kpi-vencidos">—</div><div class="kpi-label">Vencidos</div></div>
+    <div class="kpi-card warning"><div class="kpi-num" id="kpi-proximos">—</div><div class="kpi-label">Por vencer</div></div>
+    <div class="kpi-card ok"><div class="kpi-num" id="kpi-aldia">—</div><div class="kpi-label">Al día</div></div>
+  </div>
+
+  <div class="filter-tabs">
+    <button class="filter-tab active" onclick="filtrarAlertas('todos')">Todos</button>
+    <button class="filter-tab" onclick="filtrarAlertas('vencido')">Vencidos</button>
+    <button class="filter-tab" onclick="filtrarAlertas('proximo')">Por vencer</button>
+    <button class="filter-tab" onclick="filtrarAlertas('al_dia')">Al día</button>
+  </div>
+
+  <div id="alertas-list"></div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PÁGINA: HISTORIAL
+══════════════════════════════════════════ -->
+<div class="page" id="page-historial">
+
+  <div class="form-row">
+    <div class="search-wrap">
+      <svg class="search-icon" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input class="search-input" type="text" id="search-hist" placeholder="Filtrar por interno..." oninput="filtrarHistorial(this.value)">
+    </div>
+  </div>
+
+  <div id="historial-list"></div>
+</div>
+
+<script>
+// ── Config ───────────────────────────────────────────────────
+const API = 'https://script.google.com/macros/s/AKfycbwOyQ0wEBDN1jwO2aJVugJU4zl4wYafxkjKf-dc6RqoKXbcy5E0VtTJBq5tjNOcQmtdMw/exec';
+
+// ── Estado global ─────────────────────────────────────────────
+let state = {
+  unidades:    [],
+  tipos:       [],
+  supervisores:[],
+  alertas:     [],
+  registros:   [],
+  filtroAlerta:'todos',
+  sel: {
+    unidad:    null,
+    tipo:      null,
+    turno:     null,
+    supervisor:null,
+  }
+};
+
+// ── API ───────────────────────────────────────────────────────
+async function api(params) {
+  const url = API + '?' + new URLSearchParams(params);
+  const res = await fetch(url);
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Error API');
+  return data.data;
+}
+
+async function apiPost(body) {
+  const res = await fetch(API, {
+    method: 'POST',
+    body: JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json' },
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'Error API');
+  return data.data;
+}
+
+// ── Init ──────────────────────────────────────────────────────
+async function init() {
+  try {
+    const [unidades, tipos, supervisores, alertas, registros] = await Promise.all([
+      api({ path: 'unidades', action: 'list', activo: true }),
+      api({ path: 'tipos_lavado', action: 'list' }),
+      api({ path: 'supervisores', action: 'list' }),
+      api({ path: 'alertas' }),
+      api({ path: 'registros', action: 'list', limit: 50 }),
+    ]);
+    state.unidades     = unidades;
+    state.tipos        = tipos;
+    state.supervisores = supervisores;
+    state.alertas      = alertas;
+    state.registros    = registros;
+
+    renderUnidades('');
+    renderChips();
+    renderSupervisores();
+    renderAlertas();
+    renderHistorial('');
+    updateKPIs();
+  } catch(e) {
+    toast('Error al cargar: ' + e.message, 'fail');
+  } finally {
+    document.getElementById('loading').classList.add('hidden');
+  }
+}
+
+// ── Nav ───────────────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ── Unidades ──────────────────────────────────────────────────
+function filtrarUnidades(q) {
+  renderUnidades(q.trim().toLowerCase());
+}
+
+function renderUnidades(q) {
+  const list = document.getElementById('unidad-list');
+  let items = state.unidades;
+  if (q) items = items.filter(u => String(u.nro_interno).toLowerCase().includes(q));
+
+  if (items.length === 0) {
+    list.innerHTML = '<div class="empty" style="padding:16px"><p style="color:var(--muted);font-size:13px">Sin resultados</p></div>';
+    return;
+  }
+
+  list.innerHTML = items.map(u => `
+    <div class="unidad-opt ${state.sel.unidad?.id == u.id ? 'selected' : ''}"
+         onclick="selUnidad(${u.id})">
+      <span>Interno <strong>${String(u.nro_interno).padStart(3,'0')}</strong></span>
+      <span class="modelo">${u.modelo_nombre || '—'}</span>
+    </div>
+  `).join('');
+}
+
+function selUnidad(id) {
+  state.sel.unidad = state.unidades.find(u => u.id == id);
+  renderUnidades(document.getElementById('search-unidad').value.trim().toLowerCase());
+  document.getElementById('form-resto').style.display = 'block';
+  checkBtn();
+  // Scroll suave al form
+  document.getElementById('form-resto').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── Chips de tipo lavado ──────────────────────────────────────
+function renderChips() {
+  const wrap = document.getElementById('chips-lavado');
+  wrap.innerHTML = state.tipos.map(t => `
+    <div class="chip" data-slug="${t.slug}"
+         style="border-color: ${t.color_badge}22"
+         onclick="selTipo('${t.slug}', this, '${t.color_badge}')">
+      ${t.nombre}
+    </div>
+  `).join('');
+}
+
+function selTipo(slug, el, color) {
+  document.querySelectorAll('.chip').forEach(c => {
+    c.classList.remove('selected');
+    c.style.background = 'var(--bg3)';
+    c.style.color = 'var(--muted)';
+  });
+  el.classList.add('selected');
+  el.style.background = color;
+  el.style.color = '#fff';
+  state.sel.tipo = slug;
+  checkBtn();
+}
+
+// ── Turno ─────────────────────────────────────────────────────
+function selTurno(n) {
+  document.querySelectorAll('.turno-btn').forEach(b => b.classList.remove('selected'));
+  document.querySelectorAll('.turno-btn')[n-1].classList.add('selected');
+  state.sel.turno = n;
+  checkBtn();
+}
+
+// ── Supervisor ────────────────────────────────────────────────
+function renderSupervisores() {
+  const sel = document.getElementById('sel-supervisor');
+  state.supervisores.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = `${s.nombre} — Turno ${s.turno}`;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change', () => {
+    state.sel.supervisor = sel.value;
+    checkBtn();
+  });
+}
+
+// ── Validación ────────────────────────────────────────────────
+function checkBtn() {
+  const { unidad, tipo, turno, supervisor } = state.sel;
+  const ok = unidad && tipo && turno && supervisor;
+  document.getElementById('btn-registrar').disabled = !ok;
+}
+
+// ── Registro ──────────────────────────────────────────────────
+async function confirmarRegistro() {
+  const { unidad, tipo, turno, supervisor } = state.sel;
+  const obs = document.getElementById('obs').value.trim();
+
+  const btn = document.getElementById('btn-registrar');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  try {
+    await apiPost({
+      path:          'registros',
+      action:        'create',
+      interno_id:    unidad.id,
+      tipo_lavado:   tipo,
+      turno:         turno,
+      supervisor_id: supervisor,
+      observaciones: obs,
+    });
+
+    toast(`✓ Interno ${String(unidad.nro_interno).padStart(3,'0')} — ${tipoNombre(tipo)} registrado`, 'ok');
+    resetForm();
+
+    // Refrescar alertas e historial en background
+    Promise.all([
+      api({ path: 'alertas' }),
+      api({ path: 'registros', action: 'list', limit: 50 }),
+    ]).then(([alertas, registros]) => {
+      state.alertas   = alertas;
+      state.registros = registros;
+      renderAlertas();
+      renderHistorial('');
+      updateKPIs();
+    });
+  } catch(e) {
+    toast('Error: ' + e.message, 'fail');
+    btn.disabled = false;
+    btn.textContent = 'Registrar lavado';
+  }
+}
+
+function resetForm() {
+  state.sel = { unidad: null, tipo: null, turno: null, supervisor: null };
+  document.getElementById('search-unidad').value = '';
+  document.getElementById('obs').value = '';
+  document.getElementById('sel-supervisor').value = '';
+  document.getElementById('form-resto').style.display = 'none';
+  document.querySelectorAll('.chip').forEach(c => {
+    c.classList.remove('selected');
+    c.style.background = 'var(--bg3)';
+    c.style.color = 'var(--muted)';
+  });
+  document.querySelectorAll('.turno-btn').forEach(b => b.classList.remove('selected'));
+  const btn = document.getElementById('btn-registrar');
+  btn.disabled = true;
+  btn.textContent = 'Registrar lavado';
+  renderUnidades('');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Alertas ───────────────────────────────────────────────────
+function filtrarAlertas(estado) {
+  state.filtroAlerta = estado;
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  renderAlertas();
+}
+
+function renderAlertas() {
+  const list = document.getElementById('alertas-list');
+  let items  = state.alertas;
+  if (state.filtroAlerta !== 'todos') items = items.filter(a => a.estado === state.filtroAlerta);
+
+  if (items.length === 0) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">✓</div><p>Sin alertas en este filtro</p></div>`;
+    return;
+  }
+
+  list.innerHTML = items.map(a => {
+    const diasLabel = a.dias_restantes === null
+      ? 'Sin registro'
+      : a.dias_restantes < 0
+        ? `${Math.abs(a.dias_restantes)}d vencido`
+        : a.dias_restantes === 0
+          ? 'Vence hoy'
+          : `${a.dias_restantes}d restantes`;
+
+    const ultimaLabel = a.ultima_fecha
+      ? 'Último: ' + formatFecha(a.ultima_fecha)
+      : 'Sin registros';
+
+    return `
+      <div class="alerta-item ${a.estado}">
+        <div class="alerta-dot"></div>
+        <div class="alerta-info">
+          <div class="alerta-titulo">Interno ${String(a.nro_interno).padStart(3,'0')} — ${a.tipo_nombre}</div>
+          <div class="alerta-sub">${a.modelo_nombre || '—'} · ${ultimaLabel}</div>
+        </div>
+        <div class="alerta-dias">${diasLabel}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function updateKPIs() {
+  const v = state.alertas.filter(a => a.estado === 'vencido').length;
+  const p = state.alertas.filter(a => a.estado === 'proximo').length;
+  const d = state.alertas.filter(a => a.estado === 'al_dia').length;
+  document.getElementById('kpi-vencidos').textContent = v;
+  document.getElementById('kpi-proximos').textContent = p;
+  document.getElementById('kpi-aldia').textContent    = d;
+}
+
+// ── Historial ─────────────────────────────────────────────────
+function filtrarHistorial(q) {
+  renderHistorial(q.trim().toLowerCase());
+}
+
+function renderHistorial(q) {
+  const list = document.getElementById('historial-list');
+  let items  = state.registros;
+  if (q) {
+    const unidadesMatch = state.unidades
+      .filter(u => String(u.nro_interno).toLowerCase().includes(q))
+      .map(u => u.id);
+    items = items.filter(r => unidadesMatch.includes(r.interno_id) || unidadesMatch.includes(String(r.interno_id)));
+  }
+
+  if (items.length === 0) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">📋</div><p>Sin registros aún</p></div>`;
+    return;
+  }
+
+  list.innerHTML = items.map(r => {
+    const unidad = state.unidades.find(u => String(u.id) === String(r.interno_id));
+    const tipo   = state.tipos.find(t => t.slug === r.tipo_lavado);
+    const color  = tipo?.color_badge || '#7a8094';
+    return `
+      <div class="registro-item">
+        <div class="reg-badge" style="background:${color}"></div>
+        <div class="reg-info">
+          <div class="reg-titulo">Interno ${String(unidad?.nro_interno || r.interno_id).padStart(3,'0')} — ${tipo?.nombre || r.tipo_lavado}</div>
+          <div class="reg-sub">Turno ${r.turno} · ${supervisorNombre(r.supervisor_id)}${r.observaciones ? ' · ' + r.observaciones : ''}</div>
+        </div>
+        <div class="reg-fecha">${formatFechaCorta(r.fecha)}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function tipoNombre(slug) {
+  return state.tipos.find(t => t.slug === slug)?.nombre || slug;
+}
+function supervisorNombre(id) {
+  return state.supervisores.find(s => String(s.id) === String(id))?.nombre || '—';
+}
+function formatFecha(str) {
+  if (!str) return '—';
+  const d = new Date(str + 'T00:00:00');
+  return d.toLocaleDateString('es-AR', { day:'2-digit', month:'short' });
+}
+function formatFechaCorta(str) {
+  if (!str) return '—';
+  const d = new Date(str);
+  return d.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit' }) + '\n' +
+         d.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' });
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + (type || '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 3200);
+}
+
+// ── Arrancar ──────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
