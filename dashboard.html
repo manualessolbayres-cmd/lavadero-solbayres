@@ -49,10 +49,11 @@ header {
 .logo-wrap { line-height: 1; }
 .logo {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: .05em;
   text-transform: uppercase;
+  color: var(--text);
 }
 .logo span { color: var(--gold); }
 .logo-sub {
@@ -476,12 +477,10 @@ main {
 <body>
 
 <header>
-  <a href="index.html" style="text-decoration:none">
-    <div class="logo-wrap">
-      <div class="logo">Lavadero <span>///</span> Solbayres</div>
-      <div class="logo-sub">Tablero operativo</div>
-    </div>
-  </a>
+  <div class="logo-wrap">
+    <div class="logo">Lavadero <span>///</span> Solbayres</div>
+    <div class="logo-sub">Tablero operativo</div>
+  </div>
   <div class="header-right">
     <div class="last-update">Actualizado: <span id="txt-update">—</span></div>
     <button class="btn-refresh" id="btn-refresh" onclick="cargar(true)">
@@ -491,7 +490,7 @@ main {
       </svg>
       Actualizar
     </button>
-    <a class="nav-back" href="registrar.html">← Registrar</a>
+    <a class="nav-back" href="index.html" title="Inicio" style="font-size:18px;padding:6px 12px;">🏠</a>
   </div>
 </header>
 
