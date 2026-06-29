@@ -541,6 +541,7 @@
     <button class="nav-tab active" onclick="showPage('carga')">Registrar</button>
     <button class="nav-tab" onclick="showPage('alertas')">Alertas</button>
     <button class="nav-tab" onclick="showPage('historial')">Historial</button>
+    <div id="user-badge"></div>
     <a class="nav-tab" href="index.html" title="Inicio" style="text-decoration:none;font-size:17px;padding:6px 10px;">🏠</a>
   </div>
 </nav>
@@ -671,6 +672,62 @@
 </div>
 
 <script>
+// ── AUTH MODULE ─────────────────────────────────────────────────
+// Incluir en index.html, registrar.html y config.html
+// dashboard.html es público, no necesita auth
+
+const AUTH_KEY = 'lav_session';
+const AUTH_TTL = 12 * 60 * 60 * 1000; // 12 horas
+
+function getSession() {
+  try {
+    const s = sessionStorage.getItem(AUTH_KEY);
+    if (!s) return null;
+    const parsed = JSON.parse(s);
+    if (Date.now() - parsed.ts > AUTH_TTL) {
+      sessionStorage.removeItem(AUTH_KEY);
+      return null;
+    }
+    return parsed;
+  } catch { return null; }
+}
+
+function requireAuth(rolesPermitidos) {
+  const session = getSession();
+  if (!session) {
+    window.location.replace('login.html');
+    return null;
+  }
+  if (rolesPermitidos && !rolesPermitidos.includes(session.rol)) {
+    window.location.replace('index.html');
+    return null;
+  }
+  return session;
+}
+
+function logout() {
+  sessionStorage.removeItem(AUTH_KEY);
+  window.location.replace('login.html');
+}
+
+function renderUserBadge(session, containerId) {
+  const el = document.getElementById(containerId);
+  if (!el || !session) return;
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="text-align:right;line-height:1.2">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.03em">${session.nombre}</div>
+        <div style="font-size:11px;color:var(--muted);text-transform:capitalize">${session.rol}</div>
+      </div>
+      <button onclick="logout()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:6px 12px;border-radius:6px;cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">Salir</button>
+    </div>
+  `;
+}
+// ── FIN AUTH MODULE ─────────────────────────────────────────────
+
+
+const session = requireAuth(['supervisor','admin']);
+
 // ── Config ───────────────────────────────────────────────────
 const API = 'https://script.google.com/macros/s/AKfycbywijxHTrjPok27q1hxCWYLGUNs8xkgY3KAmUbxT1gePMXINwwl6MyIG4GOytq74sjlrw/exec';
 
@@ -736,6 +793,7 @@ async function init() {
     renderAlertas();
     renderHistorial('');
     updateKPIs();
+    if (session) renderUserBadge(session, 'user-badge');
   } catch(e) {
     toast('Error al cargar: ' + e.message, 'fail');
   } finally {

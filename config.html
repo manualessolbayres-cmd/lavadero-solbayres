@@ -163,6 +163,7 @@ nav{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px soli
     <div class="logo">Lavadero <span>///</span> Solbayres</div>
     <div class="logo-sub">Configuración</div>
   </div>
+  <div id="user-badge" style="margin-right:4px"></div>
   <a class="nav-back" href="index.html" title="Inicio" style="font-size:18px;padding:6px 12px;">🏠</a>
 </nav>
 
@@ -185,6 +186,10 @@ nav{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px soli
     <button class="sidebar-btn" onclick="showSection('supervisores',this)">
       <span class="icon">👷</span> Supervisores
       <span class="sidebar-count" id="cnt-supervisores">—</span>
+    </button>
+    <button class="sidebar-btn" onclick="showSection('usuarios',this)">
+      <span class="icon">🔐</span> Usuarios
+      <span class="sidebar-count" id="cnt-usuarios">—</span>
     </button>
   </aside>
 
@@ -246,6 +251,20 @@ nav{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px soli
       </div>
     </div>
 
+    <!-- ══ USUARIOS ══ -->
+    <div class="section" id="sec-usuarios">
+      <div class="section-head">
+        <div>
+          <div class="section-head-title">Usuarios del sistema</div>
+          <div class="section-head-sub">Accesos y roles — solo administradores</div>
+        </div>
+        <button class="btn btn-gold" onclick="abrirModal('usuario')">+ Nuevo usuario</button>
+      </div>
+      <div class="items-list" id="list-usuarios">
+        <div class="skeleton"></div><div class="skeleton"></div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -267,6 +286,62 @@ nav{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px soli
 <div id="toast"></div>
 
 <script>
+// ── AUTH MODULE ─────────────────────────────────────────────────
+// Incluir en index.html, registrar.html y config.html
+// dashboard.html es público, no necesita auth
+
+const AUTH_KEY = 'lav_session';
+const AUTH_TTL = 12 * 60 * 60 * 1000; // 12 horas
+
+function getSession() {
+  try {
+    const s = sessionStorage.getItem(AUTH_KEY);
+    if (!s) return null;
+    const parsed = JSON.parse(s);
+    if (Date.now() - parsed.ts > AUTH_TTL) {
+      sessionStorage.removeItem(AUTH_KEY);
+      return null;
+    }
+    return parsed;
+  } catch { return null; }
+}
+
+function requireAuth(rolesPermitidos) {
+  const session = getSession();
+  if (!session) {
+    window.location.replace('login.html');
+    return null;
+  }
+  if (rolesPermitidos && !rolesPermitidos.includes(session.rol)) {
+    window.location.replace('index.html');
+    return null;
+  }
+  return session;
+}
+
+function logout() {
+  sessionStorage.removeItem(AUTH_KEY);
+  window.location.replace('login.html');
+}
+
+function renderUserBadge(session, containerId) {
+  const el = document.getElementById(containerId);
+  if (!el || !session) return;
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="text-align:right;line-height:1.2">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.03em">${session.nombre}</div>
+        <div style="font-size:11px;color:var(--muted);text-transform:capitalize">${session.rol}</div>
+      </div>
+      <button onclick="logout()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:6px 12px;border-radius:6px;cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">Salir</button>
+    </div>
+  `;
+}
+// ── FIN AUTH MODULE ─────────────────────────────────────────────
+
+
+const session = requireAuth(['admin']);
+
 const API = 'https://script.google.com/macros/s/AKfycbywijxHTrjPok27q1hxCWYLGUNs8xkgY3KAmUbxT1gePMXINwwl6MyIG4GOytq74sjlrw/exec';
 
 const COLORES_TIPO = ['#4A90D9','#7B68EE','#F5A623','#50C878','#E74C3C','#1ABC9C','#9B59B6','#E67E22','#3498DB','#E91E8C'];
@@ -277,6 +352,7 @@ let state = {
   cronogramas: [],
   supervisores:[],
   tipos:       [],
+  usuarios:    [],
   modalTipo:   null,
   editId:      null,
   colorSel:    COLORES_TIPO[0],
@@ -299,19 +375,22 @@ async function apip(params) {
 // ── INIT ───────────────────────────────────────────────────────
 async function init() {
   try {
-    const [u, m, c, s, t] = await Promise.all([
+    const [u, m, cr, s, t, us] = await Promise.all([
       apig({ path:'unidades', action:'list' }),
       apig({ path:'modelos',  action:'list' }),
       apig({ path:'cronogramas', action:'list' }),
       apig({ path:'supervisores', action:'list' }),
       apig({ path:'tipos_lavado', action:'list' }),
+      apig({ path:'usuarios', action:'list' }),
     ]);
     state.unidades     = u;
     state.modelos      = m;
-    state.cronogramas  = c;
+    state.cronogramas  = cr;
     state.supervisores = s;
     state.tipos        = t;
+    state.usuarios     = us;
     renderAll();
+    if (session) renderUserBadge(session, 'user-badge');
   } catch(e) { toast('Error al cargar: ' + e.message, 'fail'); }
 }
 
@@ -320,6 +399,7 @@ function renderAll() {
   renderModelos();
   renderCronogramas();
   renderSupervisores();
+  renderUsuarios();
 }
 
 // ── NAV SIDEBAR ────────────────────────────────────────────────
@@ -601,6 +681,33 @@ function abrirModal(tipo, data = null) {
     setTimeout(() => document.getElementById('f-nombre').focus(), 100);
   }
 
+  if (tipo === 'usuario') {
+    body.innerHTML = \`
+      <div class="field">
+        <label>Nombre completo</label>
+        <input type="text" id="f-nombre" placeholder="Ej: Juan Pérez" value="\${data?.nombre || ''}">
+      </div>
+      <div class="field">
+        <label>Usuario (para login)</label>
+        <input type="text" id="f-usuario" placeholder="Ej: juan.perez" value="\${data?.usuario || ''}" \${data ? 'disabled style=\"opacity:.6\"' : ''} autocapitalize="none">
+        \${data ? '<div class="field-hint">El nombre de usuario no se puede cambiar</div>' : ''}
+      </div>
+      <div class="field">
+        <label>Contraseña \${data ? '<span style="font-weight:400;text-transform:none;letter-spacing:0">(dejá vacío para no cambiar)</span>' : ''}</label>
+        <input type="password" id="f-password" placeholder="\${data ? 'Nueva contraseña (opcional)' : 'Mínimo 6 caracteres'}">
+      </div>
+      <div class="field">
+        <label>Rol</label>
+        <select id="f-rol">
+          <option value="">— Seleccioná el rol —</option>
+          <option value="supervisor" \${data?.rol === 'supervisor' ? 'selected' : ''}>Supervisor — solo registro</option>
+          <option value="admin" \${data?.rol === 'admin' ? 'selected' : ''}>Administrador — acceso completo</option>
+        </select>
+      </div>
+    \`;
+    setTimeout(() => document.getElementById('f-nombre').focus(), 100);
+  }
+
   if (tipo === 'supervisor') {
     body.innerHTML = `
       <div class="field">
@@ -676,6 +783,31 @@ async function confirmarModal() {
       renderModelos();
     }
 
+    if (state.modalTipo === 'usuario') {
+      const nombre   = document.getElementById('f-nombre').value.trim();
+      const usuario  = document.getElementById('f-usuario').value.trim().toLowerCase();
+      const password = document.getElementById('f-password').value;
+      const rol      = document.getElementById('f-rol').value;
+      if (!nombre)  { toast('Ingresá el nombre', 'fail'); return; }
+      if (!usuario) { toast('Ingresá el usuario', 'fail'); return; }
+      if (!rol)     { toast('Seleccioná el rol', 'fail'); return; }
+      if (!state.editId && !password) { toast('Ingresá una contraseña', 'fail'); return; }
+
+      if (state.editId) {
+        const body = { path:'usuarios', action:'update', id:state.editId, nombre, rol };
+        if (password) body.password = password;
+        await apip(body);
+        const u = state.usuarios.find(u => String(u.id) === String(state.editId));
+        if (u) { u.nombre = nombre; u.usuario = usuario; u.rol = rol; }
+        toast('Usuario actualizado', 'ok');
+      } else {
+        const res = await apip({ path:'usuarios', action:'create', nombre, usuario, password, rol });
+        state.usuarios.push({ id:res.id, nombre, usuario, rol, activo:true });
+        toast(`Usuario @${usuario} creado`, 'ok');
+      }
+      renderUsuarios();
+    }
+
     if (state.modalTipo === 'supervisor') {
       const nombre = document.getElementById('f-nombre').value.trim();
       const turno  = document.getElementById('f-turno').value;
@@ -702,6 +834,50 @@ async function confirmarModal() {
     btn.textContent = 'Guardar';
     btn.disabled = false;
   }
+}
+
+// ── USUARIOS ──────────────────────────────────────────────────
+function renderUsuarios() {
+  const list = document.getElementById('list-usuarios');
+  document.getElementById('cnt-usuarios').textContent = state.usuarios.length;
+
+  if (state.usuarios.length === 0) {
+    list.innerHTML = \`<div class="empty"><div class="empty-icon">🔐</div><p>Sin usuarios cargados</p></div>\`;
+    return;
+  }
+
+  const rolBadge = { admin: 'badge-gold', supervisor: 'badge-success' };
+
+  list.innerHTML = state.usuarios.map(u => \`
+    <div class="item-card">
+      <div class="item-info">
+        <div class="item-title">\${u.nombre}</div>
+        <div class="item-sub">@\${u.usuario}</div>
+      </div>
+      <div class="item-actions">
+        <span class="badge \${rolBadge[u.rol] || 'badge-muted'}">\${u.rol}</span>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="editarUsuario(\${u.id})" title="Editar">✏️</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="eliminarUsuario(\${u.id})" title="Eliminar">🗑</button>
+      </div>
+    </div>
+  \`).join('');
+}
+
+function editarUsuario(id) {
+  const u = state.usuarios.find(u => String(u.id) === String(id));
+  if (!u) return;
+  state.editId = id;
+  abrirModal('usuario', u);
+}
+
+async function eliminarUsuario(id) {
+  if (!confirm('¿Eliminar este usuario?')) return;
+  try {
+    await apip({ path:'usuarios', action:'delete', id });
+    state.usuarios = state.usuarios.filter(u => String(u.id) !== String(id));
+    renderUsuarios();
+    toast('Usuario eliminado', 'ok');
+  } catch(e) { toast('Error: ' + e.message, 'fail'); }
 }
 
 // ── TOAST ──────────────────────────────────────────────────────

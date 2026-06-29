@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0d1117">
+<title>Ingresar — Lavadero Solbayres</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#1e242d;--border:#2a3140;--text:#e6edf3;--muted:#6e7f96;--gold:#E8A020;--gold2:#c8861a;--danger:#f85149;--success:#3fb950;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px;-webkit-font-smoothing:antialiased;}
+
+.login-wrap{width:100%;max-width:380px;display:flex;flex-direction:column;gap:32px;align-items:center;}
+
+.logo{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;text-align:center;line-height:1;}
+.logo span{color:var(--gold);}
+.logo-sub{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:500;letter-spacing:.3em;text-transform:uppercase;color:var(--gold);margin-top:5px;text-align:center;}
+
+.login-card{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px 24px;display:flex;flex-direction:column;gap:18px;}
+.card-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;}
+
+.field label{display:block;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.field input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:16px;padding:13px 14px;outline:none;font-family:'Barlow',sans-serif;transition:border-color .15s;-webkit-appearance:none;}
+.field input:focus{border-color:var(--gold);}
+.field input.error{border-color:var(--danger);}
+
+.btn-login{width:100%;padding:15px;border-radius:10px;border:none;background:var(--gold);color:#0d1117;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:all .15s;margin-top:4px;}
+.btn-login:hover{background:var(--gold2);}
+.btn-login:active{transform:scale(.98);}
+.btn-login:disabled{background:var(--bg3);color:var(--muted);cursor:not-allowed;transform:none;}
+
+.error-msg{background:rgba(248,81,73,.1);border:1px solid rgba(248,81,73,.3);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--danger);display:none;text-align:center;}
+.error-msg.show{display:block;}
+
+.footer{font-size:11px;color:var(--muted);text-align:center;}
+</style>
+</head>
+<body>
+<div class="login-wrap">
+  <div>
+    <div class="logo">Lavadero <span>///</span> Solbayres</div>
+    <div class="logo-sub">Control de flota</div>
+  </div>
+
+  <div class="login-card">
+    <div class="card-title">Ingresar al sistema</div>
+
+    <div class="field">
+      <label>Usuario</label>
+      <input type="text" id="inp-usuario" placeholder="tu usuario" autocomplete="username" autocapitalize="none">
+    </div>
+    <div class="field">
+      <label>Contraseña</label>
+      <input type="password" id="inp-password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+
+    <div class="error-msg" id="error-msg">Usuario o contraseña incorrectos</div>
+
+    <button class="btn-login" id="btn-login" onclick="doLogin()">Ingresar</button>
+  </div>
+
+  <div class="footer">Tablero público → <a href="dashboard.html" style="color:var(--gold);text-decoration:none">ver sin login</a></div>
+</div>
+
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbywijxHTrjPok27q1hxCWYLGUNs8xkgY3KAmUbxT1gePMXINwwl6MyIG4GOytq74sjlrw/exec';
+
+// Si ya hay sesión activa, redirigir
+const session = getSession();
+if (session) window.location.replace('index.html');
+
+// Enter para loguear
+document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+async function doLogin() {
+  const usuario  = document.getElementById('inp-usuario').value.trim();
+  const password = document.getElementById('inp-password').value;
+  const errEl    = document.getElementById('error-msg');
+  const btn      = document.getElementById('btn-login');
+
+  if (!usuario || !password) {
+    errEl.textContent = 'Completá usuario y contraseña';
+    errEl.classList.add('show');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Verificando...';
+  errEl.classList.remove('show');
+
+  try {
+    const url = API + '?' + new URLSearchParams({ path:'login', usuario, password });
+    const res  = await fetch(url);
+    const data = await res.json();
+
+    if (data.ok) {
+      saveSession(data.data);
+      window.location.replace('index.html');
+    } else {
+      errEl.textContent = 'Usuario o contraseña incorrectos';
+      errEl.classList.add('show');
+      document.getElementById('inp-password').value = '';
+      document.getElementById('inp-password').focus();
+    }
+  } catch(e) {
+    errEl.textContent = 'Error de conexión. Intentá de nuevo.';
+    errEl.classList.add('show');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Ingresar';
+  }
+}
+
+function saveSession(user) {
+  sessionStorage.setItem('lav_session', JSON.stringify({
+    id:      user.id,
+    nombre:  user.nombre,
+    usuario: user.usuario,
+    rol:     user.rol,
+    ts:      Date.now(),
+  }));
+}
+
+function getSession() {
+  try {
+    const s = sessionStorage.getItem('lav_session');
+    if (!s) return null;
+    const parsed = JSON.parse(s);
+    // Sesión expira en 12 horas
+    if (Date.now() - parsed.ts > 12 * 60 * 60 * 1000) {
+      sessionStorage.removeItem('lav_session');
+      return null;
+    }
+    return parsed;
+  } catch { return null; }
+}
+</script>
+</body>
+</html>
