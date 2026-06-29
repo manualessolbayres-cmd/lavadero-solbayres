@@ -1034,20 +1034,36 @@ function mCheckForm() {
     state.sel.supervisor = supervisor;
   }
 
-  // Para supervisor: si no hay supervisores en el sistema, igual puede continuar
-  const supOk = esSupervisor
-    ? (state.supervisores.length === 0 || !!supervisor)
-    : !!supervisor;
+  // Supervisor: solo necesita unidad y tipo — turno y supervisor vienen de sesión/sistema
+  const ok = esSupervisor
+    ? !!(unidad && tipo)
+    : !!(unidad && tipo && turno && supervisor);
 
-  const ok = !!(unidad && tipo && turno && supOk);
   document.getElementById('m-btn-siguiente').disabled = !ok;
 }
 
 // ── Paso 2: Confirmación ───────────────────────────────────────
 function irAConfirmacion() {
-  state.sel.supervisor = document.getElementById('m-supervisor').value;
-  state.sel.obs        = document.getElementById('m-obs').value.trim();
-  state.sel.fechaConf  = document.getElementById('m-fecha')?.value || hoyISO();
+  const esSupervisor = session?.rol === 'supervisor';
+
+  if (!esSupervisor) {
+    state.sel.supervisor = document.getElementById('m-supervisor').value;
+  }
+  // Si supervisor sin turno en sesión, asignar turno desde el supervisor encontrado
+  if (esSupervisor && !state.sel.turno) {
+    const supObj2 = state.supervisores.find(s => String(s.id) === String(state.sel.supervisor));
+    if (supObj2) state.sel.turno = parseInt(supObj2.turno);
+  }
+  // Si aún sin supervisor, buscar por nombre de sesión
+  if (esSupervisor && !state.sel.supervisor) {
+    const supNombre = state.supervisores.find(s =>
+      s.nombre.toLowerCase().includes((session?.nombre || '').toLowerCase())
+    );
+    if (supNombre) state.sel.supervisor = String(supNombre.id);
+  }
+
+  state.sel.obs       = document.getElementById('m-obs').value.trim();
+  state.sel.fechaConf = document.getElementById('m-fecha')?.value || hoyISO();
 
   const { unidad, tipo, turno, supervisor, obs, fechaConf } = state.sel;
   const tipoObj = state.tipos.find(t => t.slug === tipo);
