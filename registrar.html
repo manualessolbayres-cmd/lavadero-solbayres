@@ -368,12 +368,20 @@
     color: var(--muted);
     user-select: none;
     -webkit-user-select: none;
+    position: relative;
   }
   .chip.selected {
     color: #fff;
     border-color: transparent;
   }
+  .chip.selected::after {
+    content: '✓';
+    font-size: 10px;
+    margin-left: 5px;
+    opacity: .85;
+  }
   .chip:active { transform: scale(.95); }
+  .chips-hint { font-size: 11px; color: var(--muted); margin-top: 6px; }
 
   /* ── Botones ── */
   .btn {
@@ -666,13 +674,48 @@
 ══════════════════════════════════════════ -->
 <div class="page" id="page-historial">
 
-  <div class="form-row">
-    <div class="search-wrap">
-      <input class="search-input" type="text" id="search-hist" placeholder="Filtrar por interno (ej: 3001)..." oninput="filtrarHistorial(this.value)">
+  <!-- Filtros -->
+  <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
+    <input class="search-input" type="text" id="search-hist" placeholder="Filtrar por interno (ej: 3001)..." oninput="aplicarFiltrosHist()" style="padding:13px 14px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div class="form-row" style="margin:0">
+        <label style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px">Desde</label>
+        <input type="date" id="hist-desde" onchange="aplicarFiltrosHist()" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:15px;padding:10px 12px;outline:none;font-family:inherit;">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px">Hasta</label>
+        <input type="date" id="hist-hasta" onchange="aplicarFiltrosHist()" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:15px;padding:10px 12px;outline:none;font-family:inherit;">
+      </div>
     </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button onclick="limpiarFiltrosHist()" class="btn btn-ghost" style="padding:8px 14px;font-size:13px;border-radius:8px;flex:1">Limpiar filtros</button>
+      <button onclick="exportarExcel()" class="btn btn-gold" style="padding:8px 16px;font-size:13px;border-radius:8px;flex:1;display:flex;align-items:center;justify-content:center;gap:6px;">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Exportar Excel
+      </button>
+    </div>
+    <div id="hist-count" style="font-size:12px;color:var(--muted);text-align:right"></div>
   </div>
 
   <div id="historial-list"></div>
+</div>
+
+<!-- Modal confirmación borrado -->
+<div class="modal-lavado-overlay" id="modal-confirm-borrar" onclick="cerrarConfirmBorrar(event)">
+  <div class="modal-lavado" style="max-width:380px">
+    <div class="modal-lavado-header">
+      <div class="modal-lavado-title" style="color:var(--danger)">⚠ Confirmar eliminación</div>
+      <button class="modal-lavado-close" onclick="document.getElementById('modal-confirm-borrar').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-lavado-body">
+      <p style="font-size:14px;color:var(--muted);line-height:1.6">¿Estás seguro que querés eliminar este registro? <strong style="color:var(--text)">Esta acción no se puede deshacer.</strong></p>
+      <div id="borrar-detalle" style="margin-top:12px;padding:12px;background:var(--bg3);border-radius:8px;font-size:13px;color:var(--muted)"></div>
+    </div>
+    <div class="modal-lavado-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('modal-confirm-borrar').classList.remove('open')">Cancelar</button>
+      <button class="btn btn-danger" id="btn-confirm-borrar" onclick="ejecutarBorrado()" style="background:var(--danger);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;cursor:pointer;">Eliminar</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -886,6 +929,7 @@ function resetModalForm() {
     c.style.background = 'var(--bg3)';
     c.style.color = 'var(--muted)';
   });
+  state.sel.tipos = [];
   // Autocompletar turno y supervisor — fuente de verdad: tabla supervisores
   const esSup       = session?.rol === 'supervisor';
   const turnoSesion = (session?.turno && session.turno !== '') ? parseInt(session.turno) : null;
@@ -991,25 +1035,31 @@ function onInternoSelect(val) {
 // ── Chips ──────────────────────────────────────────────────────
 function renderChips() {
   const wrap = document.getElementById('m-chips-lavado');
-  wrap.innerHTML = state.tipos.map(t => `
-    <div class="chip" data-slug="${t.slug}"
-         style="border-color:${t.color_badge}22"
-         onclick="mSelTipo('${t.slug}', this, '${t.color_badge}')">
-      ${t.nombre}
-    </div>
-  `).join('');
+  wrap.innerHTML = state.tipos.map(t =>
+    '<div class="chip" data-slug="' + t.slug + '" data-color="' + t.color_badge + '"' +
+    ' style="border-color:' + t.color_badge + '22"' +
+    ' onclick="mToggleTipo(this)">' + t.nombre + '</div>'
+  ).join('') + '<div class="chips-hint">Podés seleccionar más de uno</div>';
 }
 
-function mSelTipo(slug, el, color) {
-  document.querySelectorAll('#m-chips-lavado .chip').forEach(c => {
-    c.classList.remove('selected');
-    c.style.background = 'var(--bg3)';
-    c.style.color = 'var(--muted)';
-  });
-  el.classList.add('selected');
-  el.style.background = color;
-  el.style.color = '#fff';
-  state.sel.tipo = slug;
+function mToggleTipo(el) {
+  const slug  = el.dataset.slug;
+  const color = el.dataset.color;
+  if (!state.sel.tipos) state.sel.tipos = [];
+
+  if (el.classList.contains('selected')) {
+    // Deseleccionar
+    el.classList.remove('selected');
+    el.style.background = 'var(--bg3)';
+    el.style.color = 'var(--muted)';
+    state.sel.tipos = state.sel.tipos.filter(s => s !== slug);
+  } else {
+    // Seleccionar
+    el.classList.add('selected');
+    el.style.background = color;
+    el.style.color = '#fff';
+    state.sel.tipos.push(slug);
+  }
   mCheckForm();
 }
 
@@ -1044,10 +1094,12 @@ function mCheckForm() {
     state.sel.supervisor = supervisor;
   }
 
-  // Supervisor: solo necesita unidad y tipo — turno y supervisor vienen de sesión/sistema
+  const tipos = state.sel.tipos || [];
+  const tienesTipo = tipos.length > 0;
+  // Supervisor: solo necesita unidad y tipo
   const ok = esSupervisor
-    ? !!(unidad && tipo)
-    : !!(unidad && tipo && turno && supervisor);
+    ? !!(unidad && tienesTipo)
+    : !!(unidad && tienesTipo && turno && supervisor);
 
   document.getElementById('m-btn-siguiente').disabled = !ok;
 }
@@ -1081,10 +1133,10 @@ function irAConfirmacion() {
   state.sel.obs       = document.getElementById('m-obs').value.trim();
   state.sel.fechaConf = document.getElementById('m-fecha')?.value || hoyISO();
 
-  const { unidad, tipo, turno, supervisor, obs, fechaConf } = state.sel;
-  const tipoObj = state.tipos.find(t => t.slug === tipo);
-  const supObj  = state.supervisores.find(s => String(s.id) === String(supervisor));
-  const turnos  = { 1:'Mañana', 2:'Tarde', 3:'Noche' };
+  const { unidad, turno, supervisor, obs, fechaConf } = state.sel;
+  const tiposSelArr = (state.sel.tipos || []).map(slug => state.tipos.find(t => t.slug === slug)).filter(Boolean);
+  const supObj      = state.supervisores.find(s => String(s.id) === String(supervisor));
+  const turnos      = { 1:'Mañana', 2:'Tarde', 3:'Noche' };
 
   document.getElementById('confirm-resumen').innerHTML = `
     <div class="confirm-row">
@@ -1092,11 +1144,8 @@ function irAConfirmacion() {
       <span class="confirm-val">${String(unidad.nro_interno).padStart(4,'0')} — ${unidad.modelo_nombre || '—'}</span>
     </div>
     <div class="confirm-row">
-      <span class="confirm-key">Tipo de lavado</span>
-      <span class="confirm-val">
-        <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${tipoObj?.color_badge};margin-right:6px;vertical-align:middle"></span>
-        ${tipoObj?.nombre || tipo}
-      </span>
+      <span class="confirm-key" id="confirm-tipo-label">Tipos de lavado</span>
+      <span class="confirm-val" id="confirm-tipos-lista" style="display:flex;flex-direction:column;gap:3px;text-align:right"></span>
     </div>
     <div class="confirm-row">
       <span class="confirm-key">Turno</span>
@@ -1112,6 +1161,17 @@ function irAConfirmacion() {
       <span class="confirm-val">${fechaConf ? fechaConf.split('-').reverse().join('/') : hoyISO()}</span>
     </div>
   `;
+
+  // Rellenar tipos dinámicamente
+  const tiposLista = document.getElementById('confirm-tipos-lista');
+  const tipoLabel  = document.getElementById('confirm-tipo-label');
+  if (tiposLista) {
+    tipoLabel.textContent = tiposSelArr.length > 1 ? 'Tipos de lavado' : 'Tipo de lavado';
+    tiposLista.innerHTML  = tiposSelArr.map(t =>
+      '<span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' +
+      t.color_badge + ';margin-right:5px;vertical-align:middle"></span>' + t.nombre + '</span>'
+    ).join('');
+  }
 
   document.getElementById('paso-form').style.display = 'none';
   document.getElementById('paso-confirm').style.display = 'block';
@@ -1130,20 +1190,24 @@ async function guardarLavado() {
   btn.textContent = 'Guardando...';
 
   try {
-    const fechaVal = document.getElementById('m-fecha')?.value || hoyISO();
-    await apiPost({
+    const fechaVal  = document.getElementById('m-fecha')?.value || hoyISO();
+    const tiposArr  = state.sel.tipos || [];
+
+    // Registrar un entry por cada tipo seleccionado
+    await Promise.all(tiposArr.map(slug => apiPost({
       path:          'registros',
       action:        'create',
       interno_id:    unidad.id,
-      tipo_lavado:   tipo,
+      tipo_lavado:   slug,
       fecha:         fechaVal + ' 00:00:00',
       turno:         turno,
       supervisor_id: supervisor,
       observaciones: obs || '',
-    });
+    })));
 
+    const nombresStr = tiposArr.map(s => tipoNombre(s)).join(', ');
     cerrarModalLavado();
-    toast(`✓ Interno ${String(unidad.nro_interno).padStart(4,'0')} — ${tipoNombre(tipo)} registrado`, 'ok');
+    toast('✓ Interno ' + String(unidad.nro_interno).padStart(4,'0') + ' — ' + nombresStr + ' registrado', 'ok');
 
     // Refrescar en background
     Promise.all([
@@ -1217,22 +1281,40 @@ function updateKPIs() {
 }
 
 // ── Historial ─────────────────────────────────────────────────
-function filtrarHistorial(q) {
-  renderHistorial(q.trim().toLowerCase());
+let registroABorrar = null;
+
+function aplicarFiltrosHist() {
+  const q     = (document.getElementById('search-hist')?.value || '').trim().toLowerCase();
+  const desde = document.getElementById('hist-desde')?.value || '';
+  const hasta = document.getElementById('hist-hasta')?.value || '';
+  renderHistorial(q, desde, hasta);
 }
 
-function renderHistorial(q) {
+function limpiarFiltrosHist() {
+  document.getElementById('search-hist').value  = '';
+  document.getElementById('hist-desde').value   = '';
+  document.getElementById('hist-hasta').value   = '';
+  renderHistorial('', '', '');
+}
+
+function renderHistorial(q, desde, hasta) {
   const list = document.getElementById('historial-list');
   let items  = state.registros;
+
   if (q) {
     const unidadesMatch = state.unidades
       .filter(u => String(u.nro_interno).toLowerCase().includes(q))
-      .map(u => u.id);
-    items = items.filter(r => unidadesMatch.includes(r.interno_id) || unidadesMatch.includes(String(r.interno_id)));
+      .map(u => String(u.id));
+    items = items.filter(r => unidadesMatch.includes(String(r.interno_id)));
   }
+  if (desde) items = items.filter(r => r.fecha && r.fecha.slice(0,10) >= desde);
+  if (hasta) items = items.filter(r => r.fecha && r.fecha.slice(0,10) <= hasta);
+
+  const count = document.getElementById('hist-count');
+  if (count) count.textContent = items.length + ' registro' + (items.length !== 1 ? 's' : '');
 
   if (items.length === 0) {
-    list.innerHTML = `<div class="empty"><div class="empty-icon">📋</div><p>Sin registros aún</p></div>`;
+    list.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><p>Sin registros en este período</p></div>';
     return;
   }
 
@@ -1240,17 +1322,112 @@ function renderHistorial(q) {
     const unidad = state.unidades.find(u => String(u.id) === String(r.interno_id));
     const tipo   = state.tipos.find(t => t.slug === r.tipo_lavado);
     const color  = tipo?.color_badge || '#7a8094';
-    return `
-      <div class="registro-item">
-        <div class="reg-badge" style="background:${color}"></div>
-        <div class="reg-info">
-          <div class="reg-titulo">Interno ${String(unidad?.nro_interno || r.interno_id).padStart(3,'0')} — ${tipo?.nombre || r.tipo_lavado}</div>
-          <div class="reg-sub">Turno ${r.turno} · ${supervisorNombre(r.supervisor_id)}${r.observaciones ? ' · ' + r.observaciones : ''}</div>
-        </div>
-        <div class="reg-fecha">${formatFechaCorta(r.fecha)}</div>
-      </div>
-    `;
+    return '<div class="registro-item">' +
+      '<div class="reg-badge" style="background:' + color + '"></div>' +
+      '<div class="reg-info">' +
+        '<div class="reg-titulo">Interno ' + String(unidad?.nro_interno || r.interno_id).padStart(4,'0') + ' — ' + (tipo?.nombre || r.tipo_lavado) + '</div>' +
+        '<div class="reg-sub">Turno ' + r.turno + ' · ' + supervisorNombre(r.supervisor_id) + (r.observaciones ? ' · ' + r.observaciones : '') + '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;">' +
+        '<div class="reg-fecha">' + formatFechaCorta(r.fecha) + '</div>' +
+        '<button onclick="confirmarBorrar(' + r.id + ')" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:4px;border-radius:4px;transition:color .15s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">🗑</button>' +
+      '</div>' +
+    '</div>';
   }).join('');
+}
+
+// ── Confirmación de borrado ────────────────────────────────────
+function confirmarBorrar(id) {
+  const r       = state.registros.find(r => String(r.id) === String(id));
+  const unidad  = state.unidades.find(u => String(u.id) === String(r?.interno_id));
+  const tipo    = state.tipos.find(t => t.slug === r?.tipo_lavado);
+  registroABorrar = id;
+
+  const detalle = document.getElementById('borrar-detalle');
+  if (detalle && r) {
+    detalle.innerHTML =
+      '<strong style="color:var(--text)">Interno ' + String(unidad?.nro_interno || '').padStart(4,'0') + '</strong>' +
+      ' — ' + (tipo?.nombre || r.tipo_lavado) +
+      '<br>Fecha: ' + formatFechaCorta(r.fecha) +
+      ' · Turno ' + r.turno;
+  }
+  document.getElementById('modal-confirm-borrar').classList.add('open');
+}
+
+function cerrarConfirmBorrar(e) {
+  if (e.target === document.getElementById('modal-confirm-borrar')) {
+    document.getElementById('modal-confirm-borrar').classList.remove('open');
+  }
+}
+
+async function ejecutarBorrado() {
+  if (!registroABorrar) return;
+  const btn = document.getElementById('btn-confirm-borrar');
+  btn.textContent = '...';
+  btn.disabled = true;
+  try {
+    await api({ path:'registros', action:'delete', id: registroABorrar });
+    state.registros = state.registros.filter(r => String(r.id) !== String(registroABorrar));
+    document.getElementById('modal-confirm-borrar').classList.remove('open');
+    aplicarFiltrosHist();
+    toast('Registro eliminado', 'ok');
+    registroABorrar = null;
+  } catch(e) {
+    toast('Error: ' + e.message, 'fail');
+  } finally {
+    btn.textContent = 'Eliminar';
+    btn.disabled = false;
+  }
+}
+
+// ── Exportar Excel ─────────────────────────────────────────────
+function exportarExcel() {
+  const q     = (document.getElementById('search-hist')?.value || '').trim().toLowerCase();
+  const desde = document.getElementById('hist-desde')?.value || '';
+  const hasta = document.getElementById('hist-hasta')?.value || '';
+
+  let items = state.registros;
+  if (q) {
+    const ids = state.unidades.filter(u => String(u.nro_interno).toLowerCase().includes(q)).map(u => String(u.id));
+    items = items.filter(r => ids.includes(String(r.interno_id)));
+  }
+  if (desde) items = items.filter(r => r.fecha && r.fecha.slice(0,10) >= desde);
+  if (hasta) items = items.filter(r => r.fecha && r.fecha.slice(0,10) <= hasta);
+
+  if (items.length === 0) { toast('Sin registros para exportar', 'fail'); return; }
+
+  // Construir CSV con BOM para que Excel lo abra bien
+  const bom  = '\uFEFF';
+  const sep  = ';';
+  const headers = ['ID','Interno','Modelo','Tipo de lavado','Fecha','Turno','Supervisor','Observaciones'];
+  const rows = items.map(r => {
+    const unidad = state.unidades.find(u => String(u.id) === String(r.interno_id));
+    const tipo   = state.tipos.find(t => t.slug === r.tipo_lavado);
+    const sup    = state.supervisores.find(s => String(s.id) === String(r.supervisor_id));
+    return [
+      r.id,
+      String(unidad?.nro_interno || '').padStart(4,'0'),
+      unidad?.modelo_nombre || '',
+      tipo?.nombre || r.tipo_lavado,
+      r.fecha ? r.fecha.slice(0,10) : '',
+      r.turno || '',
+      sup?.nombre || '',
+      r.observaciones || '',
+    ].map(v => '"' + String(v).replace(/"/g,'""') + '"').join(sep);
+  });
+
+  const csv      = bom + [headers.join(sep), ...rows].join('\n');
+  const blob     = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url      = URL.createObjectURL(blob);
+  const a        = document.createElement('a');
+  const filename = 'lavadero_registros' + (desde ? '_' + desde : '') + (hasta ? '_al_' + hasta : '') + '.csv';
+  a.href         = url;
+  a.download     = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('✓ Exportado: ' + items.length + ' registros', 'ok');
 }
 
 // ── Helpers ───────────────────────────────────────────────────

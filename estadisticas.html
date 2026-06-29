@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0d1117">
+<title>Estadísticas — Lavadero Solbayres</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#1e242d;--border:#2a3140;--text:#e6edf3;--muted:#6e7f96;--gold:#E8A020;--gold2:#c8861a;--success:#3fb950;--warning:#d29922;--danger:#f85149;--radius:10px;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;-webkit-font-smoothing:antialiased;}
+
+nav{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:56px;}
+.logo{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text);}
+.logo span{color:var(--gold);}
+.logo-sub{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:500;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);margin-top:2px;}
+.nav-right{display:flex;align-items:center;gap:10px;}
+.nav-back{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-decoration:none;padding:7px 14px;border-radius:6px;border:1px solid var(--border);transition:all .15s;}
+.nav-back:hover{color:var(--text);border-color:var(--text);}
+
+main{padding:20px 20px 60px;max-width:1400px;margin:0 auto;}
+
+/* Filtros */
+.filtros{display:grid;grid-template-columns:1fr 1fr auto auto;gap:10px;align-items:end;margin-bottom:24px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;}
+.filtro-field label{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px;}
+.filtro-field input,.filtro-field select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:15px;padding:10px 13px;outline:none;font-family:'Barlow',sans-serif;transition:border-color .15s;-webkit-appearance:none;}
+.filtro-field input:focus,.filtro-field select:focus{border-color:var(--gold);}
+.filtro-field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236e7f96' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:30px;}
+.btn-aplicar{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:10px 20px;border-radius:8px;border:none;background:var(--gold);color:#0d1117;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.btn-aplicar:hover{background:var(--gold2);}
+.btn-limpiar{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:10px 16px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);cursor:pointer;transition:all .15s;white-space:nowrap;}
+.btn-limpiar:hover{border-color:var(--text);color:var(--text);}
+
+/* Sección title */
+.section-label{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;margin-top:28px;}
+.section-label:first-child{margin-top:0;}
+
+/* KPI strip */
+.kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:8px;}
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;}
+.kpi-num{font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:800;line-height:1;color:var(--text);}
+.kpi-label{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:4px;}
+.kpi.gold .kpi-num{color:var(--gold);}
+.kpi.ok   .kpi-num{color:var(--success);}
+.kpi.warn .kpi-num{color:var(--warning);}
+.kpi.danger .kpi-num{color:var(--danger);}
+
+/* Grid gráficos */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:8px;}
+.chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px;}
+.chart-title{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;}
+.chart-wrap{position:relative;height:240px;}
+
+/* Tablas */
+.tabla-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:8px;}
+.tabla-head{display:grid;padding:10px 16px;background:var(--bg3);border-bottom:1px solid var(--border);font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+.tabla-row{display:grid;padding:11px 16px;border-bottom:1px solid var(--border);font-size:13px;align-items:center;transition:background .1s;}
+.tabla-row:last-child{border-bottom:none;}
+.tabla-row:hover{background:var(--bg3);}
+.rank{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--muted);}
+.bar-wrap{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:3px;background:var(--gold);transition:width .4s;}
+
+/* Loading */
+.loading-msg{text-align:center;padding:60px;color:var(--muted);font-size:14px;}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 16px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* Responsive */
+@media(max-width:900px){.kpi-strip{grid-template-columns:repeat(3,1fr);}.charts-grid{grid-template-columns:1fr;}}
+@media(max-width:600px){.kpi-strip{grid-template-columns:repeat(2,1fr);}.filtros{grid-template-columns:1fr 1fr;}}
+
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:11px 20px;border-radius:999px;font-size:14px;font-weight:500;z-index:999;transition:transform .3s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,.4);}
+#toast.show{transform:translateX(-50%) translateY(0);}
+#toast.ok{border-color:var(--success);color:var(--success);}
+#toast.fail{border-color:var(--danger);color:var(--danger);}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<nav>
+  <div>
+    <div class="logo">Lavadero <span>///</span> Solbayres</div>
+    <div class="logo-sub">Estadísticas</div>
+  </div>
+  <div class="nav-right">
+    <div id="user-badge"></div>
+    <a class="nav-back" href="index.html" title="Inicio">🏠</a>
+  </div>
+</nav>
+
+<main>
+  <div id="loading-wrap" class="loading-msg">
+    <div class="spinner"></div>
+    Cargando datos...
+  </div>
+
+  <div id="contenido" style="display:none">
+
+    <!-- Filtros -->
+    <div class="filtros">
+      <div class="filtro-field">
+        <label>Desde</label>
+        <input type="date" id="f-desde">
+      </div>
+      <div class="filtro-field">
+        <label>Hasta</label>
+        <input type="date" id="f-hasta">
+      </div>
+      <button class="btn-limpiar" onclick="limpiarFiltros()">Limpiar</button>
+      <button class="btn-aplicar" onclick="calcularStats()">Aplicar</button>
+    </div>
+
+    <!-- KPIs -->
+    <div class="section-label">Resumen del período</div>
+    <div class="kpi-strip">
+      <div class="kpi gold"><div class="kpi-num" id="s-total">—</div><div class="kpi-label">Total lavados</div></div>
+      <div class="kpi"    ><div class="kpi-num" id="s-unidades">—</div><div class="kpi-label">Unidades atendidas</div></div>
+      <div class="kpi"    ><div class="kpi-num" id="s-dias">—</div><div class="kpi-label">Días con actividad</div></div>
+      <div class="kpi ok" ><div class="kpi-num" id="s-promdia">—</div><div class="kpi-label">Promedio por día</div></div>
+      <div class="kpi"    ><div class="kpi-num" id="s-tipos-distintos">—</div><div class="kpi-label">Tipos realizados</div></div>
+    </div>
+
+    <!-- Gráficos -->
+    <div class="section-label">Distribución</div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Lavados por tipo</div>
+        <div class="chart-wrap"><canvas id="chart-tipos"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Lavados por turno</div>
+        <div class="chart-wrap"><canvas id="chart-turnos"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Actividad por día de semana</div>
+        <div class="chart-wrap"><canvas id="chart-semana"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Evolución diaria (últimos 30 días)</div>
+        <div class="chart-wrap"><canvas id="chart-evolucion"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Ranking supervisores -->
+    <div class="section-label">Ranking de supervisores</div>
+    <div class="tabla-card">
+      <div class="tabla-head" style="grid-template-columns:40px 1fr 80px 80px 120px">#<span>Supervisor</span><span>Turno</span><span>Lavados</span><span>Participación</span></div>
+      <div id="tabla-supervisores"></div>
+    </div>
+
+    <!-- Ranking unidades -->
+    <div class="section-label">Unidades con más lavados</div>
+    <div class="tabla-card">
+      <div class="tabla-head" style="grid-template-columns:40px 1fr 100px 120px">#<span>Interno</span><span>Lavados</span><span>% del total</span></div>
+      <div id="tabla-unidades"></div>
+    </div>
+
+    <!-- Ranking tipos -->
+    <div class="section-label">Detalle por tipo de lavado</div>
+    <div class="tabla-card">
+      <div class="tabla-head" style="grid-template-columns:14px 1fr 80px 1fr">&nbsp;<span>Tipo</span><span>Cantidad</span><span>Proporción</span></div>
+      <div id="tabla-tipos"></div>
+    </div>
+
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbxPS9wF-HEbL1jTGCsYUfoAT9xh7rr9RcAwse58qf5w6lMxwE2CA8zvxK03aJhvWdwR/exec';
+const AUTH_KEY = 'lav_session';
+
+// ── Auth ──────────────────────────────────────────────────────
+function getSession() {
+  try {
+    const s = sessionStorage.getItem(AUTH_KEY);
+    if (!s) return null;
+    const p = JSON.parse(s);
+    if (Date.now() - p.ts > 12 * 60 * 60 * 1000) { sessionStorage.removeItem(AUTH_KEY); return null; }
+    return p;
+  } catch { return null; }
+}
+function logout() { sessionStorage.removeItem(AUTH_KEY); window.location.replace('login.html'); }
+
+const session = getSession();
+if (!session) { window.location.replace('login.html'); }
+if (session && session.rol !== 'admin') {
+  window.location.replace('noautorizado.html?modulo=Estadísticas');
+}
+
+// ── Estado ────────────────────────────────────────────────────
+let state = { registros:[], unidades:[], supervisores:[], tipos:[], charts:{} };
+
+// ── API ───────────────────────────────────────────────────────
+async function get(params) {
+  const r = await fetch(API + '?' + new URLSearchParams(params));
+  const d = await r.json();
+  if (!d.ok) throw new Error(d.error);
+  return d.data;
+}
+
+// ── Init ──────────────────────────────────────────────────────
+async function init() {
+  try {
+    const [reg, uni, sup, tip] = await Promise.all([
+      get({ path:'registros', action:'list', limit:9999 }),
+      get({ path:'unidades',  action:'list' }),
+      get({ path:'supervisores', action:'list' }),
+      get({ path:'tipos_lavado', action:'list' }),
+    ]);
+    state.registros    = reg;
+    state.unidades     = uni;
+    state.supervisores = sup;
+    state.tipos        = tip;
+
+    // Defaults: último mes
+    const hoy   = new Date();
+    const hace30= new Date(hoy); hace30.setDate(hoy.getDate() - 30);
+    document.getElementById('f-desde').value = hace30.toISOString().slice(0,10);
+    document.getElementById('f-hasta').value = hoy.toISOString().slice(0,10);
+
+    document.getElementById('loading-wrap').style.display = 'none';
+    document.getElementById('contenido').style.display    = 'block';
+
+    if (session) renderUserBadge();
+    calcularStats();
+  } catch(e) {
+    document.getElementById('loading-wrap').innerHTML = '<p style="color:var(--danger)">Error: ' + e.message + '</p>';
+  }
+}
+
+function renderUserBadge() {
+  const el = document.getElementById('user-badge');
+  if (!el || !session) return;
+  el.innerHTML =
+    '<div style="display:flex;align-items:center;gap:10px;">' +
+      '<div style="text-align:right;line-height:1.2">' +
+        '<div style="font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;text-transform:uppercase">' + session.nombre + '</div>' +
+        '<div style="font-size:11px;color:var(--muted)">' + session.rol + '</div>' +
+      '</div>' +
+      '<button onclick="logout()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:6px 12px;border-radius:6px;cursor:pointer;" onmouseover="this.style.borderColor=\'var(--danger)\';this.style.color=\'var(--danger)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--muted)\'">Salir</button>' +
+    '</div>';
+}
+
+// ── Filtros ───────────────────────────────────────────────────
+function limpiarFiltros() {
+  document.getElementById('f-desde').value = '';
+  document.getElementById('f-hasta').value = '';
+  calcularStats();
+}
+
+function getRegistrosFiltrados() {
+  const desde = document.getElementById('f-desde').value;
+  const hasta = document.getElementById('f-hasta').value;
+  let items = state.registros;
+  if (desde) items = items.filter(r => r.fecha && r.fecha.slice(0,10) >= desde);
+  if (hasta) items = items.filter(r => r.fecha && r.fecha.slice(0,10) <= hasta);
+  return items;
+}
+
+// ── Calcular y renderizar ─────────────────────────────────────
+function calcularStats() {
+  const regs = getRegistrosFiltrados();
+  renderKPIs(regs);
+  renderChartTipos(regs);
+  renderChartTurnos(regs);
+  renderChartSemana(regs);
+  renderChartEvolucion(regs);
+  renderTablaSupervisores(regs);
+  renderTablaUnidades(regs);
+  renderTablaTipos(regs);
+}
+
+// ── KPIs ──────────────────────────────────────────────────────
+function renderKPIs(regs) {
+  const uniqUnidades = new Set(regs.map(r => r.interno_id)).size;
+  const uniqDias     = new Set(regs.map(r => (r.fecha || '').slice(0,10)).filter(Boolean)).size;
+  const promDia      = uniqDias > 0 ? (regs.length / uniqDias).toFixed(1) : 0;
+  const uniqTipos    = new Set(regs.map(r => r.tipo_lavado)).size;
+
+  document.getElementById('s-total').textContent          = regs.length;
+  document.getElementById('s-unidades').textContent       = uniqUnidades;
+  document.getElementById('s-dias').textContent           = uniqDias;
+  document.getElementById('s-promdia').textContent        = promDia;
+  document.getElementById('s-tipos-distintos').textContent= uniqTipos;
+}
+
+// ── Helpers charts ────────────────────────────────────────────
+const CHART_DEFAULTS = {
+  plugins: { legend: { labels: { color: '#6e7f96', font: { family: 'Barlow' } } } },
+  scales: {
+    x: { ticks: { color: '#6e7f96', font: { family: 'Barlow', size: 11 } }, grid: { color: '#2a3140' } },
+    y: { ticks: { color: '#6e7f96', font: { family: 'Barlow', size: 11 } }, grid: { color: '#2a3140' }, beginAtZero: true }
+  }
+};
+const DOUGHNUT_DEFAULTS = {
+  plugins: { legend: { position: 'right', labels: { color: '#6e7f96', font: { family: 'Barlow' }, padding: 12, boxWidth: 14 } } }
+};
+
+function destroyChart(id) {
+  if (state.charts[id]) { state.charts[id].destroy(); delete state.charts[id]; }
+}
+
+function contarPor(regs, keyFn) {
+  const map = {};
+  regs.forEach(r => { const k = keyFn(r); map[k] = (map[k] || 0) + 1; });
+  return map;
+}
+
+// ── Gráfico: tipos ────────────────────────────────────────────
+function renderChartTipos(regs) {
+  destroyChart('tipos');
+  const conteo = contarPor(regs, r => r.tipo_lavado);
+  const tipos  = state.tipos.filter(t => conteo[t.slug]);
+  const ctx    = document.getElementById('chart-tipos').getContext('2d');
+  state.charts['tipos'] = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels:   tipos.map(t => t.nombre),
+      datasets: [{ data: tipos.map(t => conteo[t.slug] || 0), backgroundColor: tipos.map(t => t.color_badge + 'cc'), borderColor: tipos.map(t => t.color_badge), borderWidth: 2 }]
+    },
+    options: { ...DOUGHNUT_DEFAULTS, maintainAspectRatio: false }
+  });
+}
+
+// ── Gráfico: turnos ───────────────────────────────────────────
+function renderChartTurnos(regs) {
+  destroyChart('turnos');
+  const conteo  = contarPor(regs, r => r.turno);
+  const nombres = { 1:'Mañana', 2:'Tarde', 3:'Noche' };
+  const ctx     = document.getElementById('chart-turnos').getContext('2d');
+  state.charts['turnos'] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels:   ['1 - Mañana', '2 - Tarde', '3 - Noche'],
+      datasets: [{ label: 'Lavados', data: [conteo[1]||conteo['1']||0, conteo[2]||conteo['2']||0, conteo[3]||conteo['3']||0], backgroundColor: ['#3fb95088','#d2992288','#4a90d988'], borderColor: ['#3fb950','#d29922','#4a90d9'], borderWidth: 2, borderRadius: 4 }]
+    },
+    options: { ...CHART_DEFAULTS, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+  });
+}
+
+// ── Gráfico: día de semana ────────────────────────────────────
+function renderChartSemana(regs) {
+  destroyChart('semana');
+  const dias = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const conteo = [0,0,0,0,0,0,0];
+  regs.forEach(r => { if (r.fecha) { const d = new Date(r.fecha.slice(0,10) + 'T00:00:00'); conteo[d.getDay()]++; } });
+  const ctx = document.getElementById('chart-semana').getContext('2d');
+  state.charts['semana'] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels:   dias,
+      datasets: [{ label: 'Lavados', data: conteo, backgroundColor: '#E8A02044', borderColor: '#E8A020', borderWidth: 2, borderRadius: 4 }]
+    },
+    options: { ...CHART_DEFAULTS, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+  });
+}
+
+// ── Gráfico: evolución diaria ─────────────────────────────────
+function renderChartEvolucion(regs) {
+  destroyChart('evolucion');
+  const conteo = {};
+  regs.forEach(r => { const d = (r.fecha || '').slice(0,10); if (d) conteo[d] = (conteo[d]||0)+1; });
+  const fechas = Object.keys(conteo).sort().slice(-30);
+  const ctx    = document.getElementById('chart-evolucion').getContext('2d');
+  state.charts['evolucion'] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels:   fechas.map(f => f.slice(5)),
+      datasets: [{ label: 'Lavados', data: fechas.map(f => conteo[f]), borderColor: '#E8A020', backgroundColor: '#E8A02015', fill: true, tension: .3, pointBackgroundColor: '#E8A020', pointRadius: 3 }]
+    },
+    options: { ...CHART_DEFAULTS, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+  });
+}
+
+// ── Tabla: supervisores ───────────────────────────────────────
+function renderTablaSupervisores(regs) {
+  const conteo = contarPor(regs, r => String(r.supervisor_id));
+  const total  = regs.length;
+  const sorted = state.supervisores
+    .map(s => ({ ...s, count: conteo[String(s.id)] || 0 }))
+    .sort((a,b) => b.count - a.count);
+
+  document.getElementById('tabla-supervisores').innerHTML = sorted.length === 0
+    ? '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Sin datos</div>'
+    : sorted.map((s, i) => {
+        const pct = total > 0 ? ((s.count/total)*100).toFixed(1) : 0;
+        return '<div class="tabla-row" style="grid-template-columns:40px 1fr 80px 80px 120px">' +
+          '<span class="rank">' + (i+1) + '</span>' +
+          '<span style="font-weight:600">' + s.nombre + '</span>' +
+          '<span style="color:var(--muted)">T' + s.turno + '</span>' +
+          '<span style="font-weight:700;color:var(--gold)">' + s.count + '</span>' +
+          '<span style="color:var(--muted)">' + pct + '%</span>' +
+        '</div>';
+      }).join('');
+}
+
+// ── Tabla: unidades ───────────────────────────────────────────
+function renderTablaUnidades(regs) {
+  const conteo = contarPor(regs, r => String(r.interno_id));
+  const total  = regs.length;
+  const sorted = Object.entries(conteo)
+    .map(([id, count]) => {
+      const u = state.unidades.find(u => String(u.id) === id);
+      return { id, nro: u?.nro_interno || id, modelo: u?.modelo_nombre || '', count };
+    })
+    .sort((a,b) => b.count - a.count)
+    .slice(0, 15);
+
+  document.getElementById('tabla-unidades').innerHTML = sorted.length === 0
+    ? '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Sin datos</div>'
+    : sorted.map((u, i) => {
+        const pct = total > 0 ? ((u.count/total)*100).toFixed(1) : 0;
+        return '<div class="tabla-row" style="grid-template-columns:40px 1fr 100px 120px">' +
+          '<span class="rank">' + (i+1) + '</span>' +
+          '<span><strong>' + String(u.nro).padStart(4,'0') + '</strong> <span style="color:var(--muted);font-size:12px">' + u.modelo + '</span></span>' +
+          '<span style="font-weight:700;color:var(--gold)">' + u.count + '</span>' +
+          '<span style="color:var(--muted)">' + pct + '%</span>' +
+        '</div>';
+      }).join('');
+}
+
+// ── Tabla: tipos ──────────────────────────────────────────────
+function renderTablaTipos(regs) {
+  const conteo = contarPor(regs, r => r.tipo_lavado);
+  const total  = regs.length;
+  const sorted = state.tipos
+    .map(t => ({ ...t, count: conteo[t.slug] || 0 }))
+    .sort((a,b) => b.count - a.count);
+  const maxCount = sorted[0]?.count || 1;
+
+  document.getElementById('tabla-tipos').innerHTML = sorted.length === 0
+    ? '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Sin datos</div>'
+    : sorted.map(t => {
+        const pct    = total > 0 ? ((t.count/total)*100).toFixed(1) : 0;
+        const barPct = maxCount > 0 ? ((t.count/maxCount)*100).toFixed(0) : 0;
+        return '<div class="tabla-row" style="grid-template-columns:14px 1fr 80px 1fr">' +
+          '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + t.color_badge + '"></span>' +
+          '<span style="font-weight:600">' + t.nombre + '</span>' +
+          '<span style="font-weight:700;color:var(--gold)">' + t.count + '</span>' +
+          '<div>' +
+            '<div style="font-size:11px;color:var(--muted);margin-bottom:3px">' + pct + '%</div>' +
+            '<div class="bar-wrap"><div class="bar-fill" style="width:' + barPct + '%;background:' + t.color_badge + '"></div></div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + (type || '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 3000);
+}
+
+init();
+</script>
+</body>
+</html>

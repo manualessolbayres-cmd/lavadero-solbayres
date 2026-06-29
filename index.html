@@ -238,11 +238,20 @@ body {
       <svg class="card-arrow" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
     </a>
 
-    <a class="access-card" href="config.html">
+    <a class="access-card" href="config.html" id="card-config" style="display:none">
       <div class="card-icon">⚙️</div>
       <div class="card-body">
         <div class="card-title">Configuración</div>
         <div class="card-desc">Unidades, modelos, cronogramas y supervisores</div>
+      </div>
+      <svg class="card-arrow" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </a>
+
+    <a class="access-card" href="estadisticas.html" id="card-stats" style="display:none">
+      <div class="card-icon">📈</div>
+      <div class="card-body">
+        <div class="card-title">Estadísticas</div>
+        <div class="card-desc">Análisis completo de lavados, turnos y rendimiento</div>
       </div>
       <svg class="card-arrow" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
     </a>
@@ -325,7 +334,14 @@ async function cargarKPIs() {
   } catch(e) { /* silencioso */ }
 }
 
-if (session) renderUserBadge(session, 'user-badge');
+if (session) {
+  renderUserBadge(session, 'user-badge');
+  // Mostrar cards según rol
+  if (session.rol === 'admin') {
+    document.getElementById('card-config').style.display = 'flex';
+    document.getElementById('card-stats').style.display  = 'flex';
+  }
+}
 cargarKPIs();
 </script>
 </body>
