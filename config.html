@@ -646,59 +646,53 @@ function abrirModal(tipo, data = null) {
   state.modalTipo = tipo;
   state.editId    = data?.id || null;
 
-  const titles = { unidad:'unidad', modelo:'modelo de recolector', supervisor:'supervisor' };
-  document.getElementById('modal-title').textContent = (data ? 'Editar' : 'Nueva') + ' ' + titles[tipo];
+  const titles = { unidad:'unidad', modelo:'modelo de recolector', supervisor:'supervisor', usuario:'usuario' };
+  document.getElementById('modal-title').textContent = (data ? 'Editar' : 'Nuevo/a') + ' ' + (titles[tipo] || tipo);
 
   const body = document.getElementById('modal-body');
 
   if (tipo === 'unidad') {
     const optsModelo = state.modelos
       .filter(m => m.activo !== false && String(m.activo) !== 'FALSE')
-      .map(m => `<option value="${m.id}" ${data && String(data.modelo_id) === String(m.id) ? 'selected' : ''}>${m.nombre}</option>`)
+      .map(m => '<option value="' + m.id + '" ' + (data && String(data.modelo_id) === String(m.id) ? 'selected' : '') + '>' + m.nombre + '</option>')
       .join('');
-    body.innerHTML = `
-      <div class="field">
-        <label>Número de interno</label>
-        <input type="text" id="f-interno" placeholder="Ej: 3001" value="${data?.nro_interno || ''}" maxlength="10">
-      </div>
-      <div class="field">
-        <label>Modelo de recolector</label>
-        <select id="f-modelo">
-          <option value="">— Seleccioná el modelo —</option>
-          ${optsModelo}
-        </select>
-        ${state.modelos.length === 0 ? '<div class="field-hint">⚠️ Primero cargá al menos un modelo en la sección Modelos</div>' : ''}
-      </div>
-      <div class="field">
-        <label>Notas <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
-        <input type="text" id="f-notas" placeholder="Observaciones sobre la unidad" value="${data?.notas || ''}">
-      </div>
-    `;
+    const noModeloHint = state.modelos.length === 0 ? '<div class="field-hint">⚠️ Primero cargá al menos un modelo en la sección Modelos</div>' : '';
+    body.innerHTML =
+      '<div class="field">' +
+        '<label>Número de interno</label>' +
+        '<input type="text" id="f-interno" placeholder="Ej: 3001" value="' + (data?.nro_interno || '') + '" maxlength="10">' +
+      '</div>' +
+      '<div class="field">' +
+        '<label>Modelo de recolector</label>' +
+        '<select id="f-modelo"><option value="">— Seleccioná el modelo —</option>' + optsModelo + '</select>' +
+        noModeloHint +
+      '</div>' +
+      '<div class="field">' +
+        '<label>Notas <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>' +
+        '<input type="text" id="f-notas" placeholder="Observaciones sobre la unidad" value="' + (data?.notas || '') + '">' +
+      '</div>';
     setTimeout(() => document.getElementById('f-interno').focus(), 100);
   }
 
   if (tipo === 'modelo') {
-    body.innerHTML = `
-      <div class="field">
-        <label>Nombre del modelo</label>
-        <input type="text" id="f-nombre" placeholder="Ej: Carga lateral derecha" value="${data?.nombre || ''}">
-      </div>
-      <div class="field">
-        <label>Clave interna</label>
-        <input type="text" id="f-clave" placeholder="Ej: lateral_der" value="${data?.icono_clave || ''}">
-        <div class="field-hint">Usada para identificar el tipo en el tablero. Sin espacios, solo letras y guiones bajos.</div>
-      </div>
-      <div class="field">
-        <label>Descripción <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
-        <input type="text" id="f-desc" placeholder="Descripción breve" value="${data?.descripcion || ''}">
-      </div>
-    `;
+    body.innerHTML =
+      '<div class="field">' +
+        '<label>Nombre del modelo</label>' +
+        '<input type="text" id="f-nombre" placeholder="Ej: Carga lateral derecha" value="' + (data?.nombre || '') + '">' +
+      '</div>' +
+      '<div class="field">' +
+        '<label>Clave interna</label>' +
+        '<input type="text" id="f-clave" placeholder="Ej: lateral_der" value="' + (data?.icono_clave || '') + '">' +
+        '<div class="field-hint">Usada para identificar el tipo en el tablero. Sin espacios, solo letras y guiones bajos.</div>' +
+      '</div>' +
+      '<div class="field">' +
+        '<label>Descripción <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>' +
+        '<input type="text" id="f-desc" placeholder="Descripción breve" value="' + (data?.descripcion || '') + '">' +
+      '</div>';
     setTimeout(() => document.getElementById('f-nombre').focus(), 100);
   }
 
   if (tipo === 'usuario') {
-    const nombreVal       = data?.nombre  || '';
-    const usuarioVal      = data?.usuario || '';
     const rolSup          = data?.rol === 'supervisor' ? 'selected' : '';
     const rolAdm          = data?.rol === 'admin'      ? 'selected' : '';
     const disabledAttr    = data ? 'disabled style="opacity:.6"' : '';
@@ -708,11 +702,11 @@ function abrirModal(tipo, data = null) {
     body.innerHTML =
       '<div class="field">' +
         '<label>Nombre completo</label>' +
-        '<input type="text" id="f-nombre" placeholder="Ej: Juan Pérez" value="' + nombreVal + '">' +
+        '<input type="text" id="f-nombre" placeholder="Ej: Juan Pérez" value="' + (data?.nombre || '') + '">' +
       '</div>' +
       '<div class="field">' +
         '<label>Usuario (para login)</label>' +
-        '<input type="text" id="f-usuario" placeholder="Ej: juan.perez" value="' + usuarioVal + '" ' + disabledAttr + ' autocapitalize="none">' +
+        '<input type="text" id="f-usuario" placeholder="Ej: juan.perez" value="' + (data?.usuario || '') + '" ' + disabledAttr + ' autocapitalize="none">' +
         hintUsuario +
       '</div>' +
       '<div class="field">' +
@@ -729,22 +723,22 @@ function abrirModal(tipo, data = null) {
       '</div>';
     setTimeout(() => document.getElementById('f-nombre').focus(), 100);
   }
+
   if (tipo === 'supervisor') {
-    body.innerHTML = `
-      <div class="field">
-        <label>Nombre completo</label>
-        <input type="text" id="f-nombre" placeholder="Ej: Juan Pérez" value="${data?.nombre || ''}">
-      </div>
-      <div class="field">
-        <label>Turno</label>
-        <select id="f-turno">
-          <option value="">— Seleccioná el turno —</option>
-          <option value="1" ${data?.turno == 1 ? 'selected' : ''}>Turno 1 — Mañana</option>
-          <option value="2" ${data?.turno == 2 ? 'selected' : ''}>Turno 2 — Tarde</option>
-          <option value="3" ${data?.turno == 3 ? 'selected' : ''}>Turno 3 — Noche</option>
-        </select>
-      </div>
-    `;
+    body.innerHTML =
+      '<div class="field">' +
+        '<label>Nombre completo</label>' +
+        '<input type="text" id="f-nombre" placeholder="Ej: Juan Pérez" value="' + (data?.nombre || '') + '">' +
+      '</div>' +
+      '<div class="field">' +
+        '<label>Turno</label>' +
+        '<select id="f-turno">' +
+          '<option value="">— Seleccioná el turno —</option>' +
+          '<option value="1" ' + (data?.turno == 1 ? 'selected' : '') + '>Turno 1 — Mañana</option>' +
+          '<option value="2" ' + (data?.turno == 2 ? 'selected' : '') + '>Turno 2 — Tarde</option>' +
+          '<option value="3" ' + (data?.turno == 3 ? 'selected' : '') + '>Turno 3 — Noche</option>' +
+        '</select>' +
+      '</div>';
     setTimeout(() => document.getElementById('f-nombre').focus(), 100);
   }
 
