@@ -593,11 +593,13 @@
         <p class="section-title">Turno</p>
         <div id="m-turno-wrap" class="form-row"></div>
 
+        <div id="m-supervisor-wrap">
         <p class="section-title">Supervisor</p>
         <div class="form-row">
           <select id="m-supervisor" onchange="mCheckForm()">
             <option value="">— Seleccioná el supervisor —</option>
           </select>
+        </div>
         </div>
 
         <p class="section-title">Fecha</p>
@@ -694,14 +696,15 @@ function getSession() {
   } catch { return null; }
 }
 
-function requireAuth(rolesPermitidos) {
+function requireAuth(rolesPermitidos, nombreModulo) {
   const session = getSession();
   if (!session) {
     window.location.replace('login.html');
     return null;
   }
   if (rolesPermitidos && !rolesPermitidos.includes(session.rol)) {
-    window.location.replace('index.html');
+    const param = nombreModulo ? '?modulo=' + encodeURIComponent(nombreModulo) : '';
+    window.location.replace('noautorizado.html' + param);
     return null;
   }
   return session;
@@ -728,7 +731,7 @@ function renderUserBadge(session, containerId) {
 // ── FIN AUTH MODULE ─────────────────────────────────────────────
 
 
-const session = requireAuth(['supervisor','admin']);
+const session = requireAuth(['supervisor','admin'], 'Registro de lavados');
 
 // ── Config ───────────────────────────────────────────────────
 const API = 'https://script.google.com/macros/s/AKfycbwFvI5KHDWaZri8o8o1k7WgFIaByFRm_rmeoKJ9n_9UKF3zbjNUKmplTkO7MIdkC6gz5Q/exec';
@@ -814,28 +817,44 @@ function showPage(name) {
 // ── Modal lavado ──────────────────────────────────────────────
 function abrirModalLavado() {
   resetModalForm();
-  // Renderizar bloque turno según sesión
-  const wrap       = document.getElementById('m-turno-wrap');
-  const turnoNames = { 1:'Mañana', 2:'Tarde', 3:'Noche' };
-  const tSesion    = session?.turno ? parseInt(session.turno) : null;
-  if (tSesion) {
-    // Turno fijo desde la sesión — mostrar badge no editable
-    const turnoStyle = 'font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:800;color:var(--accent)';
-    wrap.innerHTML =
-      '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--bg3);border:1px solid var(--accent);border-radius:var(--radius-sm);">' +
-        '<span style="' + turnoStyle + '">' + tSesion + '</span>' +
-        '<span style="font-size:14px;font-weight:600;">' + (turnoNames[tSesion] || '') + '</span>' +
-        '<span style="font-size:11px;color:var(--muted);margin-left:auto">Turno de tu sesión</span>' +
-      '</div>';
+
+  const esSupervisor = session?.rol === 'supervisor';
+  const wrap         = document.getElementById('m-turno-wrap');
+  const supWrap      = document.getElementById('m-supervisor-wrap');
+  const turnoNames   = { 1:'Mañana', 2:'Tarde', 3:'Noche' };
+  const tSesion      = (session?.turno && session.turno !== '') ? parseInt(session.turno) : null;
+
+  if (esSupervisor) {
+    // Supervisor: ocultar turno y supervisor — vienen de la sesión
+    wrap.innerHTML    = '';
+    supWrap.style.display = 'none';
+    // Autocompletar supervisor si hay uno con el mismo turno
+    const supMatch = state.supervisores.find(s => String(s.turno) === String(tSesion));
+    if (supMatch) {
+      state.sel.supervisor = String(supMatch.id);
+      document.getElementById('m-supervisor').value = String(supMatch.id);
+    }
   } else {
-    // Admin — puede elegir turno manualmente
-    wrap.innerHTML =
-      '<div class="turno-grid">' +
-        '<button class="turno-btn" onclick="mSelTurno(1,this)"><span class="turno-num">1</span>Mañana</button>' +
-        '<button class="turno-btn" onclick="mSelTurno(2,this)"><span class="turno-num">2</span>Tarde</button>' +
-        '<button class="turno-btn" onclick="mSelTurno(3,this)"><span class="turno-num">3</span>Noche</button>' +
-      '</div>';
+    // Admin: mostrar selector de turno y supervisor
+    supWrap.style.display = 'block';
+    if (tSesion) {
+      const turnoStyle = 'font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:800;color:var(--accent)';
+      wrap.innerHTML =
+        '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--bg3);border:1px solid var(--accent);border-radius:var(--radius-sm);">' +
+          '<span style="' + turnoStyle + '">' + tSesion + '</span>' +
+          '<span style="font-size:14px;font-weight:600;">' + (turnoNames[tSesion] || '') + '</span>' +
+          '<span style="font-size:11px;color:var(--muted);margin-left:auto">Turno de tu sesión</span>' +
+        '</div>';
+    } else {
+      wrap.innerHTML =
+        '<div class="turno-grid">' +
+          '<button class="turno-btn" onclick="mSelTurno(1,this)"><span class="turno-num">1</span>Mañana</button>' +
+          '<button class="turno-btn" onclick="mSelTurno(2,this)"><span class="turno-num">2</span>Tarde</button>' +
+          '<button class="turno-btn" onclick="mSelTurno(3,this)"><span class="turno-num">3</span>Noche</button>' +
+        '</div>';
+    }
   }
+
   document.getElementById('modal-lavado-overlay').classList.add('open');
   setTimeout(() => document.getElementById('m-interno-texto').focus(), 300);
 }
@@ -993,11 +1012,14 @@ function renderSupervisores() {
 // ── Validación ─────────────────────────────────────────────────
 function mCheckForm() {
   const { unidad, tipo } = state.sel;
-  const supervisor = document.getElementById('m-supervisor').value;
-  state.sel.supervisor = supervisor;
-  // Turno: desde sesión (supervisor) o seleccionado manualmente (admin)
-  const turno = state.sel.turno;
-  const ok = unidad && tipo && turno && supervisor;
+  const esSupervisor = session?.rol === 'supervisor';
+  // Supervisor: turno y supervisor vienen de la sesión
+  const turno      = state.sel.turno;
+  const supervisor = esSupervisor
+    ? state.sel.supervisor  // ya seteado en abrirModalLavado
+    : document.getElementById('m-supervisor').value;
+  if (!esSupervisor) state.sel.supervisor = supervisor;
+  const ok = unidad && tipo && turno && (esSupervisor ? !!supervisor : !!supervisor);
   document.getElementById('m-btn-siguiente').disabled = !ok;
 }
 

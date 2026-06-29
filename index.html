@@ -274,14 +274,15 @@ function getSession() {
   } catch { return null; }
 }
 
-function requireAuth(rolesPermitidos) {
+function requireAuth(rolesPermitidos, nombreModulo) {
   const session = getSession();
   if (!session) {
     window.location.replace('login.html');
     return null;
   }
   if (rolesPermitidos && !rolesPermitidos.includes(session.rol)) {
-    window.location.replace('index.html');
+    const param = nombreModulo ? '?modulo=' + encodeURIComponent(nombreModulo) : '';
+    window.location.replace('noautorizado.html' + param);
     return null;
   }
   return session;
@@ -308,7 +309,7 @@ function renderUserBadge(session, containerId) {
 // ── FIN AUTH MODULE ─────────────────────────────────────────────
 
 
-const session = requireAuth(['supervisor','admin']);
+const session = requireAuth(['supervisor','admin'], 'Inicio');
 
 const API = 'https://script.google.com/macros/s/AKfycbwFvI5KHDWaZri8o8o1k7WgFIaByFRm_rmeoKJ9n_9UKF3zbjNUKmplTkO7MIdkC6gz5Q/exec';
 

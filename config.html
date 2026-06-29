@@ -306,14 +306,15 @@ function getSession() {
   } catch { return null; }
 }
 
-function requireAuth(rolesPermitidos) {
+function requireAuth(rolesPermitidos, nombreModulo) {
   const session = getSession();
   if (!session) {
     window.location.replace('login.html');
     return null;
   }
   if (rolesPermitidos && !rolesPermitidos.includes(session.rol)) {
-    window.location.replace('index.html');
+    const param = nombreModulo ? '?modulo=' + encodeURIComponent(nombreModulo) : '';
+    window.location.replace('noautorizado.html' + param);
     return null;
   }
   return session;
@@ -340,7 +341,7 @@ function renderUserBadge(session, containerId) {
 // ── FIN AUTH MODULE ─────────────────────────────────────────────
 
 
-const session = requireAuth(['admin']);
+const session = requireAuth(['admin'], 'Configuración');
 if (!session) { throw new Error('Sin sesión'); }
 
 
