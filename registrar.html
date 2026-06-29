@@ -886,9 +886,22 @@ function resetModalForm() {
     c.style.background = 'var(--bg3)';
     c.style.color = 'var(--muted)';
   });
-  // Autocompletar turno desde sesión
+  // Autocompletar turno y supervisor desde sesión
   const turnoSesion = (session?.turno && session.turno !== '') ? parseInt(session.turno) : null;
-  state.sel = { unidad: null, tipo: null, turno: turnoSesion, supervisor: null };
+  const esSup       = session?.rol === 'supervisor';
+
+  // Si es supervisor, buscar su supervisor asignado al turno
+  let supId = null;
+  if (esSup && turnoSesion) {
+    const supMatch = state.supervisores.find(s => String(s.turno) === String(turnoSesion));
+    if (supMatch) {
+      supId = String(supMatch.id);
+      document.getElementById('m-supervisor').value = supId;
+    }
+  }
+
+  state.sel = { unidad: null, tipo: null, turno: turnoSesion, supervisor: supId };
+
   if (turnoSesion) {
     document.querySelectorAll('.turno-btn').forEach((b, i) => {
       b.classList.toggle('selected', i + 1 === turnoSesion);
@@ -1013,13 +1026,20 @@ function renderSupervisores() {
 function mCheckForm() {
   const { unidad, tipo } = state.sel;
   const esSupervisor = session?.rol === 'supervisor';
-  // Supervisor: turno y supervisor vienen de la sesión
-  const turno      = state.sel.turno;
-  const supervisor = esSupervisor
-    ? state.sel.supervisor  // ya seteado en abrirModalLavado
-    : document.getElementById('m-supervisor').value;
-  if (!esSupervisor) state.sel.supervisor = supervisor;
-  const ok = unidad && tipo && turno && (esSupervisor ? !!supervisor : !!supervisor);
+  const turno        = state.sel.turno;
+
+  let supervisor = state.sel.supervisor;
+  if (!esSupervisor) {
+    supervisor = document.getElementById('m-supervisor').value;
+    state.sel.supervisor = supervisor;
+  }
+
+  // Para supervisor: si no hay supervisores en el sistema, igual puede continuar
+  const supOk = esSupervisor
+    ? (state.supervisores.length === 0 || !!supervisor)
+    : !!supervisor;
+
+  const ok = !!(unidad && tipo && turno && supOk);
   document.getElementById('m-btn-siguiente').disabled = !ok;
 }
 
