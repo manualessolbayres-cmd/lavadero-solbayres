@@ -868,7 +868,7 @@ function resetModalForm() {
     c.style.color = 'var(--muted)';
   });
   // Autocompletar turno desde sesión
-  const turnoSesion = session?.turno ? parseInt(session.turno) : null;
+  const turnoSesion = (session?.turno && session.turno !== '') ? parseInt(session.turno) : null;
   state.sel = { unidad: null, tipo: null, turno: turnoSesion, supervisor: null };
   if (turnoSesion) {
     document.querySelectorAll('.turno-btn').forEach((b, i) => {
@@ -992,9 +992,11 @@ function renderSupervisores() {
 
 // ── Validación ─────────────────────────────────────────────────
 function mCheckForm() {
-  const { unidad, tipo, turno } = state.sel;
+  const { unidad, tipo } = state.sel;
   const supervisor = document.getElementById('m-supervisor').value;
   state.sel.supervisor = supervisor;
+  // Turno: desde sesión (supervisor) o seleccionado manualmente (admin)
+  const turno = state.sel.turno;
   const ok = unidad && tipo && turno && supervisor;
   document.getElementById('m-btn-siguiente').disabled = !ok;
 }
@@ -1003,8 +1005,9 @@ function mCheckForm() {
 function irAConfirmacion() {
   state.sel.supervisor = document.getElementById('m-supervisor').value;
   state.sel.obs        = document.getElementById('m-obs').value.trim();
+  state.sel.fechaConf  = document.getElementById('m-fecha')?.value || hoyISO();
 
-  const { unidad, tipo, turno, supervisor, obs } = state.sel;
+  const { unidad, tipo, turno, supervisor, obs, fechaConf } = state.sel;
   const tipoObj = state.tipos.find(t => t.slug === tipo);
   const supObj  = state.supervisores.find(s => String(s.id) === String(supervisor));
   const turnos  = { 1:'Mañana', 2:'Tarde', 3:'Noche' };
