@@ -820,9 +820,10 @@ function abrirModalLavado() {
   const tSesion    = session?.turno ? parseInt(session.turno) : null;
   if (tSesion) {
     // Turno fijo desde la sesión — mostrar badge no editable
+    const turnoStyle = 'font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:800;color:var(--accent)';
     wrap.innerHTML =
       '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--bg3);border:1px solid var(--accent);border-radius:var(--radius-sm);">' +
-        '<span style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:800;color:var(--accent)">' + tSesion + '</span>' +
+        '<span style="' + turnoStyle + '">' + tSesion + '</span>' +
         '<span style="font-size:14px;font-weight:600;">' + (turnoNames[tSesion] || '') + '</span>' +
         '<span style="font-size:11px;color:var(--muted);margin-left:auto">Turno de tu sesión</span>' +
       '</div>';
