@@ -886,21 +886,31 @@ function resetModalForm() {
     c.style.background = 'var(--bg3)';
     c.style.color = 'var(--muted)';
   });
-  // Autocompletar turno y supervisor desde sesión
-  const turnoSesion = (session?.turno && session.turno !== '') ? parseInt(session.turno) : null;
+  // Autocompletar turno y supervisor — fuente de verdad: tabla supervisores
   const esSup       = session?.rol === 'supervisor';
+  const turnoSesion = (session?.turno && session.turno !== '') ? parseInt(session.turno) : null;
 
-  // Si es supervisor, buscar su supervisor asignado al turno
-  let supId = null;
-  if (esSup && turnoSesion) {
-    const supMatch = state.supervisores.find(s => String(s.turno) === String(turnoSesion));
-    if (supMatch) {
-      supId = String(supMatch.id);
+  let supId    = null;
+  let turnoSel = turnoSesion;
+
+  if (esSup) {
+    // Buscar por turno de sesión primero, luego por nombre
+    let sup = turnoSesion
+      ? state.supervisores.find(s => parseInt(s.turno) === turnoSesion)
+      : null;
+    if (!sup) {
+      sup = state.supervisores.find(s =>
+        s.nombre.toLowerCase().includes((session?.nombre || '').toLowerCase())
+      );
+    }
+    if (sup) {
+      supId    = String(sup.id);
+      turnoSel = parseInt(sup.turno) || turnoSesion;
       document.getElementById('m-supervisor').value = supId;
     }
   }
 
-  state.sel = { unidad: null, tipo: null, turno: turnoSesion, supervisor: supId };
+  state.sel = { unidad: null, tipo: null, turno: turnoSel, supervisor: supId };
 
   if (turnoSesion) {
     document.querySelectorAll('.turno-btn').forEach((b, i) => {
@@ -1049,17 +1059,23 @@ function irAConfirmacion() {
   if (!esSupervisor) {
     state.sel.supervisor = document.getElementById('m-supervisor').value;
   }
-  // Si supervisor sin turno en sesión, asignar turno desde el supervisor encontrado
-  if (esSupervisor && !state.sel.turno) {
-    const supObj2 = state.supervisores.find(s => String(s.id) === String(state.sel.supervisor));
-    if (supObj2) state.sel.turno = parseInt(supObj2.turno);
-  }
-  // Si aún sin supervisor, buscar por nombre de sesión
-  if (esSupervisor && !state.sel.supervisor) {
-    const supNombre = state.supervisores.find(s =>
-      s.nombre.toLowerCase().includes((session?.nombre || '').toLowerCase())
-    );
-    if (supNombre) state.sel.supervisor = String(supNombre.id);
+  // Resolver turno y supervisor desde la tabla de supervisores (fuente de verdad)
+  if (esSupervisor) {
+    // Buscar el supervisor por turno de sesión, o por nombre si no hay turno
+    let sup = null;
+    const turnoSes = (session?.turno && session.turno !== '') ? parseInt(session.turno) : null;
+    if (turnoSes) {
+      sup = state.supervisores.find(s => parseInt(s.turno) === turnoSes);
+    }
+    if (!sup) {
+      sup = state.supervisores.find(s =>
+        s.nombre.toLowerCase().includes((session?.nombre || '').toLowerCase())
+      );
+    }
+    if (sup) {
+      state.sel.supervisor = String(sup.id);
+      state.sel.turno      = parseInt(sup.turno) || turnoSes || null;
+    }
   }
 
   state.sel.obs       = document.getElementById('m-obs').value.trim();
