@@ -344,7 +344,7 @@ const session = requireAuth(['admin']);
 if (!session) { throw new Error('Sin sesión'); }
 
 
-const API = 'https://script.google.com/macros/s/AKfycbxnUvB8Op-7azdk4NV8QrCQfJhRRg7y09wFSvo134HaX0fO_FrN6YHzOvf2xhXO4uLR0Q/exec';
+const API = 'https://script.google.com/macros/s/AKfycbwFvI5KHDWaZri8o8o1k7WgFIaByFRm_rmeoKJ9n_9UKF3zbjNUKmplTkO7MIdkC6gz5Q/exec';
 
 const COLORES_TIPO = ['#4A90D9','#7B68EE','#F5A623','#50C878','#E74C3C','#1ABC9C','#9B59B6','#E67E22','#3498DB','#E91E8C'];
 
@@ -699,6 +699,19 @@ function abrirModal(tipo, data = null) {
     const hintUsuario     = data ? '<div class="field-hint">El nombre de usuario no se puede cambiar</div>' : '';
     const passLabel       = data ? '(dejá vacío para no cambiar)' : '';
     const passPlaceholder = data ? 'Nueva contraseña (opcional)' : 'Mínimo 6 caracteres';
+    const turnoSel        = (n) => data?.turno == n ? 'selected' : '';
+    const turnoBlock      = data?.rol === 'admin' ? '' :
+      '<div class="field" id="field-turno-usuario">' +
+        '<label>Turno</label>' +
+        '<select id="f-turno-usuario">' +
+          '<option value="">— Seleccioná el turno —</option>' +
+          '<option value="1" ' + turnoSel(1) + '>Turno 1 — Mañana</option>' +
+          '<option value="2" ' + turnoSel(2) + '>Turno 2 — Tarde</option>' +
+          '<option value="3" ' + turnoSel(3) + '>Turno 3 — Noche</option>' +
+        '</select>' +
+        '<div class="field-hint">El turno se usa para autocompletar el registro de lavado</div>' +
+      '</div>';
+
     body.innerHTML =
       '<div class="field">' +
         '<label>Nombre completo</label>' +
@@ -715,12 +728,14 @@ function abrirModal(tipo, data = null) {
       '</div>' +
       '<div class="field">' +
         '<label>Rol</label>' +
-        '<select id="f-rol">' +
+        '<select id="f-rol" onchange="toggleTurnoUsuario(this.value)">' +
           '<option value="">— Seleccioná el rol —</option>' +
           '<option value="supervisor" ' + rolSup + '>Supervisor — solo registro</option>' +
           '<option value="admin" '      + rolAdm + '>Administrador — acceso completo</option>' +
         '</select>' +
-      '</div>';
+      '</div>' +
+      '<div id="turno-usuario-wrap">' + turnoBlock + '</div>';
+
     setTimeout(() => document.getElementById('f-nombre').focus(), 100);
   }
 
@@ -743,6 +758,26 @@ function abrirModal(tipo, data = null) {
   }
 
   document.getElementById('modal-overlay').classList.add('open');
+}
+
+function toggleTurnoUsuario(rol) {
+  const wrap = document.getElementById('turno-usuario-wrap');
+  if (!wrap) return;
+  if (rol === 'supervisor') {
+    wrap.innerHTML =
+      '<div class="field" id="field-turno-usuario">' +
+        '<label>Turno</label>' +
+        '<select id="f-turno-usuario">' +
+          '<option value="">— Seleccioná el turno —</option>' +
+          '<option value="1">Turno 1 — Mañana</option>' +
+          '<option value="2">Turno 2 — Tarde</option>' +
+          '<option value="3">Turno 3 — Noche</option>' +
+        '</select>' +
+        '<div class="field-hint">El turno se usa para autocompletar el registro de lavado</div>' +
+      '</div>';
+  } else {
+    wrap.innerHTML = '';
+  }
 }
 
 function cerrarModal() {
@@ -803,22 +838,25 @@ async function confirmarModal() {
       const usuario  = document.getElementById('f-usuario').value.trim().toLowerCase();
       const password = document.getElementById('f-password').value;
       const rol      = document.getElementById('f-rol').value;
+      const turnoEl  = document.getElementById('f-turno-usuario');
+      const turno    = turnoEl ? turnoEl.value : '';
       if (!nombre)  { toast('Ingresá el nombre', 'fail'); return; }
       if (!usuario) { toast('Ingresá el usuario', 'fail'); return; }
       if (!rol)     { toast('Seleccioná el rol', 'fail'); return; }
+      if (rol === 'supervisor' && !turno) { toast('Seleccioná el turno', 'fail'); return; }
       if (!state.editId && !password) { toast('Ingresá una contraseña', 'fail'); return; }
 
       if (state.editId) {
-        const body = { path:'usuarios', action:'update', id:state.editId, nombre, rol };
+        const body = { path:'usuarios', action:'update', id:state.editId, nombre, rol, turno };
         if (password) body.password = password;
         await apip(body);
         const u = state.usuarios.find(u => String(u.id) === String(state.editId));
-        if (u) { u.nombre = nombre; u.usuario = usuario; u.rol = rol; }
+        if (u) { u.nombre = nombre; u.usuario = usuario; u.rol = rol; u.turno = turno; }
         toast('Usuario actualizado', 'ok');
       } else {
-        const res = await apip({ path:'usuarios', action:'create', nombre, usuario, password, rol });
-        state.usuarios.push({ id:res.id, nombre, usuario, rol, activo:true });
-        toast(`Usuario @${usuario} creado`, 'ok');
+        const res = await apip({ path:'usuarios', action:'create', nombre, usuario, password, rol, turno });
+        state.usuarios.push({ id:res.id, nombre, usuario, rol, turno, activo:true });
+        toast('Usuario @' + usuario + ' creado', 'ok');
       }
       renderUsuarios();
     }

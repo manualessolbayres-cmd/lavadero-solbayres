@@ -591,17 +591,19 @@
         <div class="chips form-row" id="m-chips-lavado"></div>
 
         <p class="section-title">Turno</p>
-        <div class="turno-grid form-row">
-          <button class="turno-btn" onclick="mSelTurno(1,this)"><span class="turno-num">1</span>Mañana</button>
-          <button class="turno-btn" onclick="mSelTurno(2,this)"><span class="turno-num">2</span>Tarde</button>
-          <button class="turno-btn" onclick="mSelTurno(3,this)"><span class="turno-num">3</span>Noche</button>
-        </div>
+        <div id="m-turno-wrap" class="form-row"></div>
 
         <p class="section-title">Supervisor</p>
         <div class="form-row">
           <select id="m-supervisor" onchange="mCheckForm()">
             <option value="">— Seleccioná el supervisor —</option>
           </select>
+        </div>
+
+        <p class="section-title">Fecha</p>
+        <div class="form-row">
+          <input type="date" id="m-fecha" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:16px;padding:13px 14px;outline:none;font-family:inherit;-webkit-appearance:none;transition:border-color .15s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">Se autocompleta con hoy. Cambialo si es un registro de un día anterior.</div>
         </div>
 
         <p class="section-title">Observaciones <span style="font-weight:400;font-size:11px;text-transform:none;letter-spacing:0;color:var(--muted)">(opcional)</span></p>
@@ -729,7 +731,7 @@ function renderUserBadge(session, containerId) {
 const session = requireAuth(['supervisor','admin']);
 
 // ── Config ───────────────────────────────────────────────────
-const API = 'https://script.google.com/macros/s/AKfycbxnUvB8Op-7azdk4NV8QrCQfJhRRg7y09wFSvo134HaX0fO_FrN6YHzOvf2xhXO4uLR0Q/exec';
+const API = 'https://script.google.com/macros/s/AKfycbwFvI5KHDWaZri8o8o1k7WgFIaByFRm_rmeoKJ9n_9UKF3zbjNUKmplTkO7MIdkC6gz5Q/exec';
 
 // ── Estado global ─────────────────────────────────────────────
 let state = {
@@ -812,6 +814,27 @@ function showPage(name) {
 // ── Modal lavado ──────────────────────────────────────────────
 function abrirModalLavado() {
   resetModalForm();
+  // Renderizar bloque turno según sesión
+  const wrap       = document.getElementById('m-turno-wrap');
+  const turnoNames = { 1:'Mañana', 2:'Tarde', 3:'Noche' };
+  const tSesion    = session?.turno ? parseInt(session.turno) : null;
+  if (tSesion) {
+    // Turno fijo desde la sesión — mostrar badge no editable
+    wrap.innerHTML =
+      '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--bg3);border:1px solid var(--accent);border-radius:var(--radius-sm);">' +
+        '<span style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--accent)">' + tSesion + '</span>' +
+        '<span style="font-size:14px;font-weight:600;">' + (turnoNames[tSesion] || '') + '</span>' +
+        '<span style="font-size:11px;color:var(--muted);margin-left:auto">Turno de tu sesión</span>' +
+      '</div>';
+  } else {
+    // Admin — puede elegir turno manualmente
+    wrap.innerHTML =
+      '<div class="turno-grid">' +
+        '<button class="turno-btn" onclick="mSelTurno(1,this)"><span class="turno-num">1</span>Mañana</button>' +
+        '<button class="turno-btn" onclick="mSelTurno(2,this)"><span class="turno-num">2</span>Tarde</button>' +
+        '<button class="turno-btn" onclick="mSelTurno(3,this)"><span class="turno-num">3</span>Noche</button>' +
+      '</div>';
+  }
   document.getElementById('modal-lavado-overlay').classList.add('open');
   setTimeout(() => document.getElementById('m-interno-texto').focus(), 300);
 }
@@ -836,14 +859,32 @@ function resetModalForm() {
   document.getElementById('m-unidad-ok').style.display = 'none';
   document.getElementById('m-obs').value = '';
   document.getElementById('m-supervisor').value = '';
+  // Fecha: default hoy
+  document.getElementById('m-fecha').value = hoyISO();
   document.querySelectorAll('#m-chips-lavado .chip').forEach(c => {
     c.classList.remove('selected');
     c.style.background = 'var(--bg3)';
     c.style.color = 'var(--muted)';
   });
-  document.querySelectorAll('.turno-btn').forEach(b => b.classList.remove('selected'));
-  state.sel = { unidad: null, tipo: null, turno: null, supervisor: null };
+  // Autocompletar turno desde sesión
+  const turnoSesion = session?.turno ? parseInt(session.turno) : null;
+  state.sel = { unidad: null, tipo: null, turno: turnoSesion, supervisor: null };
+  if (turnoSesion) {
+    document.querySelectorAll('.turno-btn').forEach((b, i) => {
+      b.classList.toggle('selected', i + 1 === turnoSesion);
+    });
+  } else {
+    document.querySelectorAll('.turno-btn').forEach(b => b.classList.remove('selected'));
+  }
   document.getElementById('m-btn-siguiente').disabled = true;
+  mCheckForm();
+}
+
+function hoyISO() {
+  const d = new Date();
+  return d.getFullYear() + '-' +
+    String(d.getMonth()+1).padStart(2,'0') + '-' +
+    String(d.getDate()).padStart(2,'0');
 }
 
 // ── Interno: input de texto ────────────────────────────────────
@@ -989,8 +1030,8 @@ function irAConfirmacion() {
     </div>
     ${obs ? `<div class="confirm-row"><span class="confirm-key">Observaciones</span><span class="confirm-val" style="font-weight:400;font-size:13px">${obs}</span></div>` : ''}
     <div class="confirm-row">
-      <span class="confirm-key">Fecha / hora</span>
-      <span class="confirm-val">${new Date().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</span>
+      <span class="confirm-key">Fecha</span>
+      <span class="confirm-val">${fechaConf ? fechaConf.split('-').reverse().join('/') : hoyISO()}</span>
     </div>
   `;
 
@@ -1011,11 +1052,13 @@ async function guardarLavado() {
   btn.textContent = 'Guardando...';
 
   try {
+    const fechaVal = document.getElementById('m-fecha')?.value || hoyISO();
     await apiPost({
       path:          'registros',
       action:        'create',
       interno_id:    unidad.id,
       tipo_lavado:   tipo,
+      fecha:         fechaVal + ' 00:00:00',
       turno:         turno,
       supervisor_id: supervisor,
       observaciones: obs || '',
