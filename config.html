@@ -697,32 +697,38 @@ function abrirModal(tipo, data = null) {
   }
 
   if (tipo === 'usuario') {
-    body.innerHTML = \`
-      <div class="field">
-        <label>Nombre completo</label>
-        <input type="text" id="f-nombre" placeholder="Ej: Juan Pérez" value="\${data?.nombre || ''}">
-      </div>
-      <div class="field">
-        <label>Usuario (para login)</label>
-        <input type="text" id="f-usuario" placeholder="Ej: juan.perez" value="\${data?.usuario || ''}" \${data ? 'disabled style=\"opacity:.6\"' : ''} autocapitalize="none">
-        \${data ? '<div class="field-hint">El nombre de usuario no se puede cambiar</div>' : ''}
-      </div>
-      <div class="field">
-        <label>Contraseña \${data ? '<span style="font-weight:400;text-transform:none;letter-spacing:0">(dejá vacío para no cambiar)</span>' : ''}</label>
-        <input type="password" id="f-password" placeholder="\${data ? 'Nueva contraseña (opcional)' : 'Mínimo 6 caracteres'}">
-      </div>
-      <div class="field">
-        <label>Rol</label>
-        <select id="f-rol">
-          <option value="">— Seleccioná el rol —</option>
-          <option value="supervisor" \${data?.rol === 'supervisor' ? 'selected' : ''}>Supervisor — solo registro</option>
-          <option value="admin" \${data?.rol === 'admin' ? 'selected' : ''}>Administrador — acceso completo</option>
-        </select>
-      </div>
-    \`;
+    const nombreVal       = data?.nombre  || '';
+    const usuarioVal      = data?.usuario || '';
+    const rolSup          = data?.rol === 'supervisor' ? 'selected' : '';
+    const rolAdm          = data?.rol === 'admin'      ? 'selected' : '';
+    const disabledAttr    = data ? 'disabled style="opacity:.6"' : '';
+    const hintUsuario     = data ? '<div class="field-hint">El nombre de usuario no se puede cambiar</div>' : '';
+    const passLabel       = data ? '(dejá vacío para no cambiar)' : '';
+    const passPlaceholder = data ? 'Nueva contraseña (opcional)' : 'Mínimo 6 caracteres';
+    body.innerHTML =
+      '<div class="field">' +
+        '<label>Nombre completo</label>' +
+        '<input type="text" id="f-nombre" placeholder="Ej: Juan Pérez" value="' + nombreVal + '">' +
+      '</div>' +
+      '<div class="field">' +
+        '<label>Usuario (para login)</label>' +
+        '<input type="text" id="f-usuario" placeholder="Ej: juan.perez" value="' + usuarioVal + '" ' + disabledAttr + ' autocapitalize="none">' +
+        hintUsuario +
+      '</div>' +
+      '<div class="field">' +
+        '<label>Contraseña <span style="font-weight:400;text-transform:none;letter-spacing:0">' + passLabel + '</span></label>' +
+        '<input type="password" id="f-password" placeholder="' + passPlaceholder + '">' +
+      '</div>' +
+      '<div class="field">' +
+        '<label>Rol</label>' +
+        '<select id="f-rol">' +
+          '<option value="">— Seleccioná el rol —</option>' +
+          '<option value="supervisor" ' + rolSup + '>Supervisor — solo registro</option>' +
+          '<option value="admin" '      + rolAdm + '>Administrador — acceso completo</option>' +
+        '</select>' +
+      '</div>';
     setTimeout(() => document.getElementById('f-nombre').focus(), 100);
   }
-
   if (tipo === 'supervisor') {
     body.innerHTML = `
       <div class="field">
@@ -857,25 +863,25 @@ function renderUsuarios() {
   document.getElementById('cnt-usuarios').textContent = state.usuarios.length;
 
   if (state.usuarios.length === 0) {
-    list.innerHTML = \`<div class="empty"><div class="empty-icon">🔐</div><p>Sin usuarios cargados</p></div>\`;
+    list.innerHTML = '<div class="empty"><div class="empty-icon">🔐</div><p>Sin usuarios cargados</p></div>';
     return;
   }
 
   const rolBadge = { admin: 'badge-gold', supervisor: 'badge-success' };
 
-  list.innerHTML = state.usuarios.map(u => \`
-    <div class="item-card">
-      <div class="item-info">
-        <div class="item-title">\${u.nombre}</div>
-        <div class="item-sub">@\${u.usuario}</div>
-      </div>
-      <div class="item-actions">
-        <span class="badge \${rolBadge[u.rol] || 'badge-muted'}">\${u.rol}</span>
-        <button class="btn btn-ghost btn-sm btn-icon" onclick="editarUsuario(\${u.id})" title="Editar">✏️</button>
-        <button class="btn btn-danger btn-sm btn-icon" onclick="eliminarUsuario(\${u.id})" title="Eliminar">🗑</button>
-      </div>
-    </div>
-  \`).join('');
+  list.innerHTML = state.usuarios.map(u =>
+    '<div class="item-card">' +
+      '<div class="item-info">' +
+        '<div class="item-title">' + u.nombre + '</div>' +
+        '<div class="item-sub">@' + u.usuario + '</div>' +
+      '</div>' +
+      '<div class="item-actions">' +
+        '<span class="badge ' + (rolBadge[u.rol] || 'badge-muted') + '">' + u.rol + '</span>' +
+        '<button class="btn btn-ghost btn-sm btn-icon" onclick="editarUsuario(' + u.id + ')" title="Editar">✏️</button>' +
+        '<button class="btn btn-danger btn-sm btn-icon" onclick="eliminarUsuario(' + u.id + ')" title="Eliminar">🗑</button>' +
+      '</div>' +
+    '</div>'
+  ).join('');
 }
 
 function editarUsuario(id) {
