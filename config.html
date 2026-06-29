@@ -341,8 +341,10 @@ function renderUserBadge(session, containerId) {
 
 
 const session = requireAuth(['admin']);
+if (!session) { throw new Error('Sin sesión'); }
 
-const API = 'https://script.google.com/macros/s/AKfycbyYyB76iCta-H7t-zRmY7xxy8i3hlWsUWOrhWgV3dp-_ZiJNT86EJqjEYQFz8_dY0fcIQ/exec';
+
+const API = 'https://script.google.com/macros/s/AKfycbxnUvB8Op-7azdk4NV8QrCQfJhRRg7y09wFSvo134HaX0fO_FrN6YHzOvf2xhXO4uLR0Q/exec';
 
 const COLORES_TIPO = ['#4A90D9','#7B68EE','#F5A623','#50C878','#E74C3C','#1ABC9C','#9B59B6','#E67E22','#3498DB','#E91E8C'];
 
@@ -375,23 +377,36 @@ async function apip(params) {
 // ── INIT ───────────────────────────────────────────────────────
 async function init() {
   try {
-    const [u, m, cr, s, t, us] = await Promise.all([
-      apig({ path:'unidades', action:'list' }),
-      apig({ path:'modelos',  action:'list' }),
+    // Cargar datos principales
+    const [u, m, cr, s, t] = await Promise.all([
+      apig({ path:'unidades',    action:'list' }),
+      apig({ path:'modelos',     action:'list' }),
       apig({ path:'cronogramas', action:'list' }),
-      apig({ path:'supervisores', action:'list' }),
-      apig({ path:'tipos_lavado', action:'list' }),
-      apig({ path:'usuarios', action:'list' }),
+      apig({ path:'supervisores',action:'list' }),
+      apig({ path:'tipos_lavado',action:'list' }),
     ]);
     state.unidades     = u;
     state.modelos      = m;
     state.cronogramas  = cr;
     state.supervisores = s;
     state.tipos        = t;
-    state.usuarios     = us;
+
+    // Usuarios por separado — puede fallar si la sheet aún no existe
+    try {
+      const us = await apig({ path:'usuarios', action:'list' });
+      state.usuarios = us || [];
+    } catch(eu) {
+      state.usuarios = [];
+      console.warn('Sheet usuarios no disponible:', eu.message);
+    }
+
     renderAll();
     if (session) renderUserBadge(session, 'user-badge');
-  } catch(e) { toast('Error al cargar: ' + e.message, 'fail'); }
+
+  } catch(e) {
+    toast('Error al cargar: ' + e.message, 'fail');
+    console.error('Init error:', e);
+  }
 }
 
 function renderAll() {
