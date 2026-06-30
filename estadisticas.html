@@ -184,7 +184,7 @@ main{padding:20px 20px 60px;max-width:1400px;margin:0 auto;}
 <div id="toast"></div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbxPS9wF-HEbL1jTGCsYUfoAT9xh7rr9RcAwse58qf5w6lMxwE2CA8zvxK03aJhvWdwR/exec';
+const API = 'https://script.google.com/macros/s/AKfycbxuNsGFO6UKh_AuuBbrjIZZHpFWb1Ry3ff533QucNFeIZW5omnRHtT5tEfKQtyZgseJYw/exec';
 const AUTH_KEY = 'lav_session';
 
 // ── Auth ──────────────────────────────────────────────────────
@@ -197,7 +197,14 @@ function getSession() {
     return p;
   } catch { return null; }
 }
-function logout() { sessionStorage.removeItem(AUTH_KEY); window.location.replace('login.html'); }
+function logout() {
+  const s = getSession();
+  if (s && s.token) {
+    fetch(API + '?' + new URLSearchParams({ path: 'logout', token: s.token })).catch(() => {});
+  }
+  sessionStorage.removeItem(AUTH_KEY);
+  window.location.replace('login.html');
+}
 
 const session = getSession();
 if (!session) { window.location.replace('login.html'); }
@@ -210,9 +217,14 @@ let state = { registros:[], unidades:[], supervisores:[], tipos:[], charts:{} };
 
 // ── API ───────────────────────────────────────────────────────
 async function get(params) {
-  const r = await fetch(API + '?' + new URLSearchParams(params));
+  const s = getSession();
+  const withToken = (s && s.token) ? { ...params, token: s.token } : params;
+  const r = await fetch(API + '?' + new URLSearchParams(withToken));
   const d = await r.json();
-  if (!d.ok) throw new Error(d.error);
+  if (!d.ok) {
+    if (d.code === 401) { sessionStorage.removeItem(AUTH_KEY); window.location.replace('login.html'); }
+    throw new Error(d.error);
+  }
   return d.data;
 }
 

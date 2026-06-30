@@ -764,6 +764,11 @@ function requireAuth(rolesPermitidos, nombreModulo) {
 }
 
 function logout() {
+  const s = getSession();
+  if (s && s.token) {
+    // Avisar al backend para invalidar el token (best-effort, no bloquea el logout)
+    fetch(API + '?' + new URLSearchParams({ path: 'logout', token: s.token })).catch(() => {});
+  }
   sessionStorage.removeItem(AUTH_KEY);
   window.location.replace('login.html');
 }
@@ -787,7 +792,7 @@ function renderUserBadge(session, containerId) {
 const session = requireAuth(['supervisor','admin'], 'Registro de lavados');
 
 // ── Config ───────────────────────────────────────────────────
-const API = 'https://script.google.com/macros/s/AKfycbxPS9wF-HEbL1jTGCsYUfoAT9xh7rr9RcAwse58qf5w6lMxwE2CA8zvxK03aJhvWdwR/exec';
+const API = 'https://script.google.com/macros/s/AKfycbxuNsGFO6UKh_AuuBbrjIZZHpFWb1Ry3ff533QucNFeIZW5omnRHtT5tEfKQtyZgseJYw/exec';
 
 // ── Estado global ─────────────────────────────────────────────
 let state = {
@@ -807,17 +812,27 @@ let state = {
 
 // ── API ───────────────────────────────────────────────────────
 async function api(params) {
-  const url = API + '?' + new URLSearchParams(params);
+  const s = getSession();
+  const withToken = (s && s.token) ? { ...params, token: s.token } : params;
+  const url = API + '?' + new URLSearchParams(withToken);
   const res = await fetch(url);
   const data = await res.json();
-  if (!data.ok) throw new Error(data.error || 'Error API');
+  if (!data.ok) {
+    if (data.code === 401) { sessionStorage.removeItem(AUTH_KEY); window.location.replace('login.html'); }
+    throw new Error(data.error || 'Error API');
+  }
   return data.data;
 }
 
 async function apiPost(params) {
-  const res = await fetch(API + '?' + new URLSearchParams(params));
+  const s = getSession();
+  const withToken = (s && s.token) ? { ...params, token: s.token } : params;
+  const res = await fetch(API + '?' + new URLSearchParams(withToken));
   const data = await res.json();
-  if (!data.ok) throw new Error(data.error || 'Error API');
+  if (!data.ok) {
+    if (data.code === 401) { sessionStorage.removeItem(AUTH_KEY); window.location.replace('login.html'); }
+    throw new Error(data.error || 'Error API');
+  }
   return data.data;
 }
 
