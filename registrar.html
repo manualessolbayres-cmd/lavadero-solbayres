@@ -914,6 +914,12 @@ function abrirModalLavado() {
 
 function cerrarModalLavado() {
   document.getElementById('modal-lavado-overlay').classList.remove('open');
+  // Resetear botón guardar para próxima apertura
+  const btnG = document.getElementById('m-btn-guardar');
+  if (btnG) { btnG.disabled = false; btnG.textContent = '✓ Confirmar y guardar'; }
+  // Volver siempre al paso 1
+  document.getElementById('paso-form').style.display    = 'block';
+  document.getElementById('paso-confirm').style.display = 'none';
 }
 
 function cerrarModalLavadoOverlay(e) {
@@ -1232,6 +1238,7 @@ async function guardarLavado() {
     });
   } catch(e) {
     toast('Error: ' + e.message, 'fail');
+  } finally {
     btn.disabled = false;
     btn.textContent = '✓ Confirmar y guardar';
   }
