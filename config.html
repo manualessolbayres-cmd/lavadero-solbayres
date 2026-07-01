@@ -125,6 +125,8 @@ nav{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px soli
 .crono-select{background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;padding:7px 10px;outline:none;font-family:'Barlow',sans-serif;transition:border-color .15s;-webkit-appearance:none;cursor:pointer;}
 .crono-select:focus{border-color:var(--gold);}
 .crono-save{opacity:0;transition:opacity .2s;}
+.crono-pausado{opacity:.55;}
+.crono-pausado .crono-tipo{color:var(--muted);}
 .crono-card.dirty .crono-save{opacity:1;}
 
 /* ── COLOR PICKER TIPO ── */
@@ -241,6 +243,7 @@ nav{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px soli
           <div class="section-head-title">Cronogramas</div>
           <div class="section-head-sub">Frecuencia y días de alerta por tipo de lavado</div>
         </div>
+        <button class="btn btn-gold" onclick="abrirModal('cronograma')">+ Nuevo cronograma</button>
       </div>
       <div class="items-list" id="list-cronogramas">
         <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
@@ -359,7 +362,7 @@ const session = requireAuth(['admin'], 'Configuración');
 if (!session) { throw new Error('Sin sesión'); }
 
 
-const API = 'https://script.google.com/macros/s/AKfycbxuNsGFO6UKh_AuuBbrjIZZHpFWb1Ry3ff533QucNFeIZW5omnRHtT5tEfKQtyZgseJYw/exec';
+const API = 'https://script.google.com/macros/s/AKfycbwjI4kA7kiToQFtMCHF0iGxb0kRi52KjsyduC4T_CRV_VAP_K9wGqBZa-gE1FNzBqTkbg/exec';
 
 const COLORES_TIPO = ['#4A90D9','#7B68EE','#F5A623','#50C878','#E74C3C','#1ABC9C','#9B59B6','#E67E22','#3498DB','#E91E8C'];
 
@@ -550,42 +553,48 @@ function editarModelo(id) {
 function renderCronogramas() {
   const list = document.getElementById('list-cronogramas');
   if (state.cronogramas.length === 0) {
-    list.innerHTML = `<div class="empty"><div class="empty-icon">📅</div><p>Sin cronogramas</p></div>`;
+    list.innerHTML = '<div class="empty"><div class="empty-icon">📅</div><p>Sin cronogramas</p></div>';
     return;
   }
 
-  list.innerHTML = state.cronogramas.map(c => {
-    const tipo = state.tipos.find(t => t.slug === c.tipo_lavado);
-    const color = tipo?.color_badge || '#6e7f96';
-    const frecuencias = ['semanal','quincenal','mensual','personalizado'];
-    const optsFrec = frecuencias.map(f => `<option value="${f}" ${c.frecuencia_tipo === f ? 'selected' : ''}>${f.charAt(0).toUpperCase()+f.slice(1)}</option>`).join('');
+  const frecuencias = ['semanal','quincenal','mensual','personalizado'];
 
-    return `
-      <div class="crono-card" id="crono-${c.id}">
-        <div>
-          <div class="crono-tipo">
-            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:8px;vertical-align:middle"></span>
-            ${tipo?.nombre || c.tipo_lavado}
-          </div>
-          <div class="crono-detail">Cada <strong id="crono-dias-txt-${c.id}">${c.cada_x_dias}</strong> días · Alerta <strong id="crono-alerta-txt-${c.id}">${c.alerta_dias_antes}</strong> días antes</div>
-        </div>
-        <div class="crono-fields">
-          <select class="crono-select" id="crono-frec-${c.id}" onchange="marcarDirtyCrono(${c.id})">${optsFrec}</select>
-          <input class="crono-input" type="number" min="1" max="365" value="${c.cada_x_dias}" id="crono-dias-${c.id}" oninput="marcarDirtyCrono(${c.id})" title="Cada X días">
-          <span class="crono-label">días · alerta</span>
-          <input class="crono-input" type="number" min="0" max="30" value="${c.alerta_dias_antes}" id="crono-alerta-${c.id}" oninput="marcarDirtyCrono(${c.id})" title="Alertar X días antes">
-          <span class="crono-label">días antes</span>
-          <button class="btn btn-gold btn-sm crono-save" id="crono-save-${c.id}" onclick="guardarCrono(${c.id})">Guardar</button>
-        </div>
-      </div>
-    `;
+  list.innerHTML = state.cronogramas.map(cr => {
+    const tipo    = state.tipos.find(t => t.slug === cr.tipo_lavado);
+    const color   = tipo?.color_badge || '#6e7f96';
+    const activo  = cr.activo !== false && String(cr.activo) !== 'FALSE';
+    const optsFrec = frecuencias.map(f =>
+      '<option value="' + f + '" ' + (cr.frecuencia_tipo === f ? 'selected' : '') + '>' +
+      f.charAt(0).toUpperCase() + f.slice(1) + '</option>'
+    ).join('');
+
+    return '<div class="crono-card' + (!activo ? ' crono-pausado' : '') + '" id="crono-' + cr.id + '">' +
+      '<div>' +
+        '<div class="crono-tipo" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+          '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0"></span>' +
+          '<span>' + (tipo?.nombre || cr.tipo_lavado) + '</span>' +
+          '<span class="badge ' + (activo ? 'badge-success' : 'badge-muted') + '" style="font-size:10px">' + (activo ? 'Activo' : 'Pausado') + '</span>' +
+        '</div>' +
+        '<div class="crono-detail">Cada <strong id="crono-dias-txt-' + cr.id + '">' + cr.cada_x_dias + '</strong> días · Alerta <strong id="crono-alerta-txt-' + cr.id + '">' + cr.alerta_dias_antes + '</strong> días antes</div>' +
+      '</div>' +
+      '<div class="crono-fields">' +
+        '<select class="crono-select" id="crono-frec-' + cr.id + '" onchange="marcarDirtyCrono(' + cr.id + ')" ' + (!activo ? 'disabled' : '') + '>' + optsFrec + '</select>' +
+        '<input class="crono-input" type="number" min="1" max="365" value="' + cr.cada_x_dias + '" id="crono-dias-' + cr.id + '" oninput="marcarDirtyCrono(' + cr.id + ')" title="Cada X días" ' + (!activo ? 'disabled' : '') + '>' +
+        '<span class="crono-label">días · alerta</span>' +
+        '<input class="crono-input" type="number" min="0" max="30" value="' + cr.alerta_dias_antes + '" id="crono-alerta-' + cr.id + '" oninput="marcarDirtyCrono(' + cr.id + ')" title="Alertar X días antes" ' + (!activo ? 'disabled' : '') + '>' +
+        '<span class="crono-label">días antes</span>' +
+        '<button class="btn btn-gold btn-sm crono-save" id="crono-save-' + cr.id + '" onclick="guardarCrono(' + cr.id + ')">Guardar</button>' +
+        '<button class="btn btn-ghost btn-sm btn-icon" onclick="toggleCrono(' + cr.id + ', ' + activo + ')" title="' + (activo ? 'Pausar' : 'Activar') + '">' + (activo ? '⏸' : '▶') + '</button>' +
+        '<button class="btn btn-danger btn-sm btn-icon" onclick="eliminarCrono(' + cr.id + ')" title="Eliminar">🗑</button>' +
+      '</div>' +
+    '</div>';
   }).join('');
 
   // Sincronizar frecuencia → días automáticamente
-  state.cronogramas.forEach(c => {
-    const selFrec = document.getElementById(`crono-frec-${c.id}`);
+  state.cronogramas.forEach(cr => {
+    const selFrec = document.getElementById('crono-frec-' + cr.id);
     if (selFrec) selFrec.addEventListener('change', () => {
-      const dias = document.getElementById(`crono-dias-${c.id}`);
+      const dias = document.getElementById('crono-dias-' + cr.id);
       const map  = { semanal:7, quincenal:15, mensual:30 };
       if (map[selFrec.value]) dias.value = map[selFrec.value];
     });
@@ -764,6 +773,52 @@ function abrirModal(tipo, data = null) {
     setTimeout(() => document.getElementById('f-nombre').focus(), 100);
   }
 
+  if (tipo === 'cronograma') {
+    // Tipos que todavía no tienen cronograma
+    const slugsConCrono = state.cronogramas.map(c => c.tipo_lavado);
+    const tiposDisponibles = state.tipos.filter(t => !slugsConCrono.includes(t.slug));
+
+    if (tiposDisponibles.length === 0) {
+      body.innerHTML =
+        '<div class="empty"><div class="empty-icon">📅</div>' +
+        '<p>Todos los tipos de lavado ya tienen cronograma asignado.</p></div>';
+      document.getElementById('modal-confirm').style.display = 'none';
+      setTimeout(() => document.getElementById('modal-overlay').classList.add('open'), 0);
+      return;
+    }
+
+    const optsTipo = tiposDisponibles.map(t =>
+      '<option value="' + t.slug + '">' + t.nombre + '</option>'
+    ).join('');
+
+    body.innerHTML =
+      '<div class="field">' +
+        '<label>Tipo de lavado</label>' +
+        '<select id="f-tipo-crono"><option value="">— Seleccioná el tipo —</option>' + optsTipo + '</select>' +
+      '</div>' +
+      '<div class="field">' +
+        '<label>Frecuencia</label>' +
+        '<select id="f-frec-crono" onchange="sincronizarDiasCrono()">' +
+          '<option value="semanal">Semanal</option>' +
+          '<option value="quincenal">Quincenal</option>' +
+          '<option value="mensual">Mensual</option>' +
+          '<option value="personalizado">Personalizado</option>' +
+        '</select>' +
+      '</div>' +
+      '<div class="field-row">' +
+        '<div class="field">' +
+          '<label>Cada X días</label>' +
+          '<input type="number" id="f-dias-crono" min="1" max="365" value="7">' +
+        '</div>' +
+        '<div class="field">' +
+          '<label>Alerta antes (días)</label>' +
+          '<input type="number" id="f-alerta-crono" min="0" max="30" value="2">' +
+        '</div>' +
+      '</div>';
+    document.getElementById('modal-confirm').style.display = '';
+    setTimeout(() => document.getElementById('f-tipo-crono').focus(), 100);
+  }
+
   if (tipo === 'supervisor') {
     body.innerHTML =
       '<div class="field">' +
@@ -886,6 +941,26 @@ async function confirmarModal() {
       renderUsuarios();
     }
 
+    if (state.modalTipo === 'cronograma') {
+      const tipoSlug = document.getElementById('f-tipo-crono').value;
+      const frec     = document.getElementById('f-frec-crono').value;
+      const dias     = parseInt(document.getElementById('f-dias-crono').value);
+      const alerta   = parseInt(document.getElementById('f-alerta-crono').value);
+      if (!tipoSlug)      { toast('Seleccioná el tipo de lavado', 'fail'); return; }
+      if (!dias || dias < 1) { toast('Ingresá una cantidad de días válida', 'fail'); return; }
+
+      const res = await apip({ path:'cronogramas', action:'create',
+        tipo_lavado: tipoSlug, frecuencia_tipo: frec,
+        cada_x_dias: dias, alerta_dias_antes: alerta, activo: true });
+      state.cronogramas.push({
+        id: res.id, tipo_lavado: tipoSlug,
+        frecuencia_tipo: frec, cada_x_dias: dias,
+        alerta_dias_antes: alerta, activo: true
+      });
+      renderCronogramas();
+      toast('Cronograma creado', 'ok');
+    }
+
     if (state.modalTipo === 'supervisor') {
       const nombre = document.getElementById('f-nombre').value.trim();
       const turno  = document.getElementById('f-turno').value;
@@ -955,6 +1030,34 @@ async function eliminarUsuario(id) {
     state.usuarios = state.usuarios.filter(u => String(u.id) !== String(id));
     renderUsuarios();
     toast('Usuario eliminado', 'ok');
+  } catch(e) { toast('Error: ' + e.message, 'fail'); }
+}
+
+// ── CRONOGRAMAS: toggle y eliminar ────────────────────────────
+async function sincronizarDiasCrono() {
+  const frec = document.getElementById('f-frec-crono')?.value;
+  const dias = document.getElementById('f-dias-crono');
+  const map  = { semanal:7, quincenal:15, mensual:30 };
+  if (dias && map[frec]) dias.value = map[frec];
+}
+
+async function toggleCrono(id, activo) {
+  try {
+    await apip({ path:'cronogramas', action:'update', id, activo: !activo });
+    const cr = state.cronogramas.find(c => String(c.id) === String(id));
+    if (cr) cr.activo = !activo;
+    renderCronogramas();
+    toast(activo ? 'Cronograma pausado' : 'Cronograma activado', 'ok');
+  } catch(e) { toast('Error: ' + e.message, 'fail'); }
+}
+
+async function eliminarCrono(id) {
+  if (!confirm('¿Eliminar este cronograma? No se puede deshacer.')) return;
+  try {
+    await apip({ path:'cronogramas', action:'delete', id });
+    state.cronogramas = state.cronogramas.filter(c => String(c.id) !== String(id));
+    renderCronogramas();
+    toast('Cronograma eliminado', 'ok');
   } catch(e) { toast('Error: ' + e.message, 'fail'); }
 }
 
