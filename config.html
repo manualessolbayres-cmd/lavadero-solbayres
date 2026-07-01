@@ -362,7 +362,7 @@ const session = requireAuth(['admin'], 'Configuración');
 if (!session) { throw new Error('Sin sesión'); }
 
 
-const API = 'https://script.google.com/macros/s/AKfycbwjI4kA7kiToQFtMCHF0iGxb0kRi52KjsyduC4T_CRV_VAP_K9wGqBZa-gE1FNzBqTkbg/exec';
+const API = 'https://script.google.com/macros/s/AKfycbwYROEu_62cZcafzcovgY3wmPty0RYoB5ENEr2pZzvEs_H9At8fbQ7dz6Wp9NTgShjJIg/exec';
 
 const COLORES_TIPO = ['#4A90D9','#7B68EE','#F5A623','#50C878','#E74C3C','#1ABC9C','#9B59B6','#E67E22','#3498DB','#E91E8C'];
 
@@ -774,49 +774,32 @@ function abrirModal(tipo, data = null) {
   }
 
   if (tipo === 'cronograma') {
-    // Tipos que todavía no tienen cronograma
-    const slugsConCrono = state.cronogramas.map(c => c.tipo_lavado);
-    const tiposDisponibles = state.tipos.filter(t => !slugsConCrono.includes(t.slug));
-
-    if (tiposDisponibles.length === 0) {
-      body.innerHTML =
-        '<div class="empty"><div class="empty-icon">📅</div>' +
-        '<p>Todos los tipos de lavado ya tienen cronograma asignado.</p></div>';
-      document.getElementById('modal-confirm').style.display = 'none';
-      setTimeout(() => document.getElementById('modal-overlay').classList.add('open'), 0);
-      return;
-    }
-
-    const optsTipo = tiposDisponibles.map(t =>
-      '<option value="' + t.slug + '">' + t.nombre + '</option>'
-    ).join('');
-
     body.innerHTML =
       '<div class="field">' +
-        '<label>Tipo de lavado</label>' +
-        '<select id="f-tipo-crono"><option value="">— Seleccioná el tipo —</option>' + optsTipo + '</select>' +
+        '<label>Nombre del cronograma</label>' +
+        '<input type="text" id="f-nombre-crono" placeholder="Ej: Lavado de chasis, Limpieza de cisterna..." maxlength="50">' +
+        '<div class="field-hint">Este nombre va a aparecer como tipo de lavado en el registro y en las alertas.</div>' +
       '</div>' +
       '<div class="field">' +
-        '<label>Frecuencia</label>' +
+        '<label>Tipo o tiempo de cronograma</label>' +
         '<select id="f-frec-crono" onchange="sincronizarDiasCrono()">' +
-          '<option value="semanal">Semanal</option>' +
-          '<option value="quincenal">Quincenal</option>' +
-          '<option value="mensual">Mensual</option>' +
-          '<option value="personalizado">Personalizado</option>' +
+          '<option value="semanal">Semanal — cada 7 días</option>' +
+          '<option value="quincenal">Quincenal — cada 15 días</option>' +
+          '<option value="mensual">Mensual — cada 30 días</option>' +
+          '<option value="personalizado">Personalizado — definir días</option>' +
         '</select>' +
       '</div>' +
-      '<div class="field-row">' +
-        '<div class="field">' +
-          '<label>Cada X días</label>' +
-          '<input type="number" id="f-dias-crono" min="1" max="365" value="7">' +
-        '</div>' +
-        '<div class="field">' +
-          '<label>Alerta antes (días)</label>' +
-          '<input type="number" id="f-alerta-crono" min="0" max="30" value="2">' +
-        '</div>' +
+      '<div class="field">' +
+        '<label>Cada X días <span style="font-weight:400;text-transform:none;letter-spacing:0">(se completa automáticamente)</span></label>' +
+        '<input type="number" id="f-dias-crono" min="1" max="365" value="7">' +
+      '</div>' +
+      '<div class="field">' +
+        '<label>Alerta antes del vencimiento (días)</label>' +
+        '<input type="number" id="f-alerta-crono" min="0" max="30" value="2">' +
+        '<div class="field-hint">Cuántos días antes del vencimiento el sistema marca la unidad como "Por vencer".</div>' +
       '</div>';
     document.getElementById('modal-confirm').style.display = '';
-    setTimeout(() => document.getElementById('f-tipo-crono').focus(), 100);
+    setTimeout(() => document.getElementById('f-nombre-crono').focus(), 100);
   }
 
   if (tipo === 'supervisor') {
@@ -942,23 +925,37 @@ async function confirmarModal() {
     }
 
     if (state.modalTipo === 'cronograma') {
-      const tipoSlug = document.getElementById('f-tipo-crono').value;
-      const frec     = document.getElementById('f-frec-crono').value;
-      const dias     = parseInt(document.getElementById('f-dias-crono').value);
-      const alerta   = parseInt(document.getElementById('f-alerta-crono').value);
-      if (!tipoSlug)      { toast('Seleccioná el tipo de lavado', 'fail'); return; }
+      const nombre = document.getElementById('f-nombre-crono').value.trim();
+      const frec   = document.getElementById('f-frec-crono').value;
+      const dias   = parseInt(document.getElementById('f-dias-crono').value);
+      const alerta = parseInt(document.getElementById('f-alerta-crono').value);
+
+      if (!nombre)         { toast('Ingresá el nombre del cronograma', 'fail'); return; }
       if (!dias || dias < 1) { toast('Ingresá una cantidad de días válida', 'fail'); return; }
 
-      const res = await apip({ path:'cronogramas', action:'create',
-        tipo_lavado: tipoSlug, frecuencia_tipo: frec,
+      // 1. Crear el tipo de lavado nuevo en tipos_lavado
+      const slug   = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'_').replace(/_+/g,'_').replace(/^_|_$/g,'');
+      const colores= ['#4A90D9','#7B68EE','#F5A623','#50C878','#E74C3C','#1ABC9C','#9B59B6','#E67E22','#3498DB','#E91E8C','#2ECC71','#F39C12'];
+      const color  = colores[state.tipos.length % colores.length];
+
+      const resTipo = await apip({ path:'tipos_lavado', action:'create',
+        nombre, slug, color_badge: color, activo: true });
+
+      state.tipos.push({ id: resTipo.id, nombre, slug, color_badge: color, activo: true });
+
+      // 2. Crear el cronograma asociado al nuevo tipo
+      const resCrono = await apip({ path:'cronogramas', action:'create',
+        tipo_lavado: slug, frecuencia_tipo: frec,
         cada_x_dias: dias, alerta_dias_antes: alerta, activo: true });
+
       state.cronogramas.push({
-        id: res.id, tipo_lavado: tipoSlug,
+        id: resCrono.id, tipo_lavado: slug,
         frecuencia_tipo: frec, cada_x_dias: dias,
         alerta_dias_antes: alerta, activo: true
       });
+
       renderCronogramas();
-      toast('Cronograma creado', 'ok');
+      toast('Cronograma "' + nombre + '" creado', 'ok');
     }
 
     if (state.modalTipo === 'supervisor') {
