@@ -791,8 +791,18 @@ function renderUserBadge(session, containerId) {
 
 const session = requireAuth(['supervisor','admin'], 'Registro de lavados');
 
+// ── Escape XSS: sanitizar cualquier dato de usuario antes de insertar en el DOM ──
+function esc(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
 // ── Config ───────────────────────────────────────────────────
-const API = 'https://script.google.com/macros/s/AKfycbzZg3LR_EeFvGUuyWKk4Ht2LGoO0YvL8gsY195ffUdfiUKH_OnTAW_E5LstxVRkQYJQEw/exec';
+const API = 'https://script.google.com/macros/s/AKfycbx57dI0tbWYo1bnbWvFWPlhIxlSEwJu2_GmDNp9M-zbZhq2Cli_VzSPEtYovis62qW6Wg/exec';
 
 // ── Estado global ─────────────────────────────────────────────
 let state = {
@@ -1200,7 +1210,7 @@ function irAConfirmacion() {
     tipoLabel.textContent = tiposSelArr.length > 1 ? 'Tipos de lavado' : 'Tipo de lavado';
     tiposLista.innerHTML  = tiposSelArr.map(t =>
       '<span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' +
-      t.color_badge + ';margin-right:5px;vertical-align:middle"></span>' + t.nombre + '</span>'
+      esc(t.color_badge) + ';margin-right:5px;vertical-align:middle"></span>' + esc(t.nombre) + '</span>'
     ).join('');
   }
 
@@ -1294,8 +1304,8 @@ function renderAlertas() {
       <div class="alerta-item ${a.estado}">
         <div class="alerta-dot"></div>
         <div class="alerta-info">
-          <div class="alerta-titulo">Interno ${String(a.nro_interno).padStart(3,'0')} — ${a.tipo_nombre}</div>
-          <div class="alerta-sub">${a.modelo_nombre || '—'} · ${ultimaLabel}</div>
+          <div class="alerta-titulo">Interno ${esc(String(a.nro_interno).padStart(4,'0'))} — ${esc(a.tipo_nombre)}</div>
+          <div class="alerta-sub">${esc(a.modelo_nombre || '—')} · ${esc(ultimaLabel)}</div>
         </div>
         <div class="alerta-dias">${diasLabel}</div>
       </div>
@@ -1357,8 +1367,8 @@ function renderHistorial(q, desde, hasta) {
     return '<div class="registro-item">' +
       '<div class="reg-badge" style="background:' + color + '"></div>' +
       '<div class="reg-info">' +
-        '<div class="reg-titulo">Interno ' + String(unidad?.nro_interno || r.interno_id).padStart(4,'0') + ' — ' + (tipo?.nombre || r.tipo_lavado) + '</div>' +
-        '<div class="reg-sub">Turno ' + r.turno + ' · ' + supervisorNombre(r.supervisor_id) + (r.observaciones ? ' · ' + r.observaciones : '') + '</div>' +
+        '<div class="reg-titulo">Interno ' + esc(String(unidad?.nro_interno || r.interno_id).padStart(4,'0')) + ' — ' + esc(tipo?.nombre || r.tipo_lavado) + '</div>' +
+        '<div class="reg-sub">Turno ' + esc(r.turno) + ' · ' + esc(supervisorNombre(r.supervisor_id)) + (r.observaciones ? ' · ' + esc(r.observaciones) : '') + '</div>' +
       '</div>' +
       '<div style="display:flex;align-items:center;gap:8px;">' +
         '<div class="reg-fecha">' + formatFechaCorta(r.fecha) + '</div>' +
@@ -1378,10 +1388,10 @@ function confirmarBorrar(id) {
   const detalle = document.getElementById('borrar-detalle');
   if (detalle && r) {
     detalle.innerHTML =
-      '<strong style="color:var(--text)">Interno ' + String(unidad?.nro_interno || '').padStart(4,'0') + '</strong>' +
-      ' — ' + (tipo?.nombre || r.tipo_lavado) +
-      '<br>Fecha: ' + formatFechaCorta(r.fecha) +
-      ' · Turno ' + r.turno;
+      '<strong style="color:var(--text)">Interno ' + esc(String(unidad?.nro_interno || '').padStart(4,'0')) + '</strong>' +
+      ' — ' + esc(tipo?.nombre || r.tipo_lavado) +
+      '<br>Fecha: ' + esc(formatFechaCorta(r.fecha)) +
+      ' · Turno ' + esc(r.turno);
   }
   document.getElementById('modal-confirm-borrar').classList.add('open');
 }

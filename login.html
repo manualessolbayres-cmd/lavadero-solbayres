@@ -74,7 +74,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-
 </div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbzZg3LR_EeFvGUuyWKk4Ht2LGoO0YvL8gsY195ffUdfiUKH_OnTAW_E5LstxVRkQYJQEw/exec';
+const API = 'https://script.google.com/macros/s/AKfycbx57dI0tbWYo1bnbWvFWPlhIxlSEwJu2_GmDNp9M-zbZhq2Cli_VzSPEtYovis62qW6Wg/exec';
 
 // Si ya hay sesión activa, redirigir
 const session = getSession();
@@ -100,8 +100,11 @@ async function doLogin() {
   errEl.classList.remove('show');
 
   try {
-    const url = API + '?' + new URLSearchParams({ path:'login', usuario, password });
-    const res  = await fetch(url);
+    const res  = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ path:'login', usuario, password }),
+    });
     const data = await res.json();
 
     if (data.ok) {

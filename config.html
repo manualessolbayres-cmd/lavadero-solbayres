@@ -304,6 +304,17 @@ nav{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px soli
 // dashboard.html es público, no necesita auth
 
 const AUTH_KEY = 'lav_session';
+// ── Escape XSS: sanitizar cualquier dato de usuario antes de insertar en el DOM ──
+function esc(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 const AUTH_TTL = 12 * 60 * 60 * 1000; // 12 horas
 
 function getSession() {
@@ -362,7 +373,7 @@ const session = requireAuth(['admin'], 'Configuración');
 if (!session) { throw new Error('Sin sesión'); }
 
 
-const API = 'https://script.google.com/macros/s/AKfycbzZg3LR_EeFvGUuyWKk4Ht2LGoO0YvL8gsY195ffUdfiUKH_OnTAW_E5LstxVRkQYJQEw/exec';
+const API = 'https://script.google.com/macros/s/AKfycbx57dI0tbWYo1bnbWvFWPlhIxlSEwJu2_GmDNp9M-zbZhq2Cli_VzSPEtYovis62qW6Wg/exec';
 
 const COLORES_TIPO = ['#4A90D9','#7B68EE','#F5A623','#50C878','#E74C3C','#1ABC9C','#9B59B6','#E67E22','#3498DB','#E91E8C'];
 
@@ -379,6 +390,23 @@ let state = {
 };
 
 // ── API ────────────────────────────────────────────────────────
+// POST seguro para datos con contraseña — no va en la URL
+async function apiPost(params) {
+  const s = getSession();
+  const body = new URLSearchParams({ ...(s && s.token ? { token: s.token } : {}), ...params });
+  const r = await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  const d = await r.json();
+  if (!d.ok) {
+    if (d.code === 401) { sessionStorage.removeItem(AUTH_KEY); window.location.replace('login.html'); }
+    throw new Error(d.error);
+  }
+  return d.data;
+}
+
 async function apig(params) {
   const s = getSession();
   const withToken = (s && s.token) ? { ...params, token: s.token } : params;
@@ -472,8 +500,8 @@ function renderUnidades() {
     return `
       <div class="item-card">
         <div class="item-info">
-          <div class="item-title">${String(u.nro_interno).padStart(4,'0')}</div>
-          <div class="item-sub">${modelo ? modelo.nombre : '— sin modelo —'} · Alta: ${u.fecha_alta || '—'}${u.notas ? ' · ' + u.notas : ''}</div>
+          <div class="item-title">${esc(String(u.nro_interno).padStart(4,'0'))}</div>
+          <div class="item-sub">${esc(modelo ? modelo.nombre : '— sin modelo —')} · Alta: ${esc(u.fecha_alta || '—')}${u.notas ? ' · ' + esc(u.notas) : ''}</div>
         </div>
         <div class="item-actions">
           <span class="badge ${activo ? 'badge-success' : 'badge-danger'}">${activo ? 'Activa' : 'Inactiva'}</span>
@@ -519,8 +547,8 @@ function renderModelos() {
     return `
       <div class="item-card">
         <div class="item-info">
-          <div class="item-title">${m.nombre}</div>
-          <div class="item-sub">Clave: ${m.icono_clave || '—'} · ${unidadesConModelo} unidad${unidadesConModelo !== 1 ? 'es' : ''} asignada${unidadesConModelo !== 1 ? 's' : ''}${m.descripcion ? ' · ' + m.descripcion : ''}</div>
+          <div class="item-title">${esc(m.nombre)}</div>
+          <div class="item-sub">Clave: ${esc(m.icono_clave || '—')} · ${unidadesConModelo} unidad${unidadesConModelo !== 1 ? 'es' : ''} asignada${unidadesConModelo !== 1 ? 's' : ''}${m.descripcion ? ' · ' + esc(m.descripcion) : ''}</div>
         </div>
         <div class="item-actions">
           <span class="badge ${activo ? 'badge-gold' : 'badge-muted'}">${activo ? 'Activo' : 'Inactivo'}</span>
@@ -572,7 +600,7 @@ function renderCronogramas() {
       '<div>' +
         '<div class="crono-tipo" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
           '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0"></span>' +
-          '<span>' + (tipo?.nombre || cr.tipo_lavado) + '</span>' +
+          '<span>' + esc(tipo?.nombre || cr.tipo_lavado) + '</span>' +
           '<span class="badge ' + (activo ? 'badge-success' : 'badge-muted') + '" style="font-size:10px">' + (activo ? 'Activo' : 'Pausado') + '</span>' +
         '</div>' +
         '<div class="crono-detail">Cada <strong id="crono-dias-txt-' + cr.id + '">' + cr.cada_x_dias + '</strong> días · Alerta <strong id="crono-alerta-txt-' + cr.id + '">' + cr.alerta_dias_antes + '</strong> días antes</div>' +
@@ -646,11 +674,11 @@ function renderSupervisores() {
   list.innerHTML = sorted.map(s => `
     <div class="item-card">
       <div class="item-info">
-        <div class="item-title">${s.nombre}</div>
-        <div class="item-sub">Turno ${s.turno}</div>
+        <div class="item-title">${esc(s.nombre)}</div>
+        <div class="item-sub">Turno ${esc(s.turno)}</div>
       </div>
       <div class="item-actions">
-        <span class="badge turno-${s.turno}">Turno ${s.turno}</span>
+        <span class="badge turno-${esc(s.turno)}">Turno ${esc(s.turno)}</span>
         <button class="btn btn-ghost btn-sm btn-icon" onclick="editarSupervisor(${s.id})" title="Editar">✏️</button>
         <button class="btn btn-danger btn-sm btn-icon" onclick="eliminarSupervisor(${s.id})" title="Eliminar">🗑</button>
       </div>
@@ -912,12 +940,12 @@ async function confirmarModal() {
       if (state.editId) {
         const body = { path:'usuarios', action:'update', id:state.editId, nombre, rol, turno };
         if (password) body.password = password;
-        await apip(body);
+        await apiPost(body);
         const u = state.usuarios.find(u => String(u.id) === String(state.editId));
         if (u) { u.nombre = nombre; u.usuario = usuario; u.rol = rol; u.turno = turno; }
         toast('Usuario actualizado', 'ok');
       } else {
-        const res = await apip({ path:'usuarios', action:'create', nombre, usuario, password, rol, turno });
+        const res = await apiPost({ path:'usuarios', action:'create', nombre, usuario, password, rol, turno });
         state.usuarios.push({ id:res.id, nombre, usuario, rol, turno, activo:true });
         toast('Usuario @' + usuario + ' creado', 'ok');
       }
@@ -1001,8 +1029,8 @@ function renderUsuarios() {
   list.innerHTML = state.usuarios.map(u =>
     '<div class="item-card">' +
       '<div class="item-info">' +
-        '<div class="item-title">' + u.nombre + '</div>' +
-        '<div class="item-sub">@' + u.usuario + '</div>' +
+        '<div class="item-title">' + esc(u.nombre) + '</div>' +
+        '<div class="item-sub">@' + esc(u.usuario) + '</div>' +
       '</div>' +
       '<div class="item-actions">' +
         '<span class="badge ' + (rolBadge[u.rol] || 'badge-muted') + '">' + u.rol + '</span>' +
