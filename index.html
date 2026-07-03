@@ -332,7 +332,7 @@ function renderUserBadge(session, containerId) {
 // ── FIN AUTH MODULE ─────────────────────────────────────────────
 
 
-const session = requireAuth(['supervisor','admin'], 'Inicio');
+const session = requireAuth(['supervisor','gerencia','admin'], 'Inicio');
 
 const API = 'https://script.google.com/macros/s/AKfycbx57dI0tbWYo1bnbWvFWPlhIxlSEwJu2_GmDNp9M-zbZhq2Cli_VzSPEtYovis62qW6Wg/exec';
 
@@ -353,6 +353,9 @@ if (session) {
   // Mostrar cards según rol
   if (session.rol === 'admin') {
     document.getElementById('card-config').style.display = 'flex';
+    document.getElementById('card-stats').style.display  = 'flex';
+  }
+  if (session.rol === 'gerencia') {
     document.getElementById('card-stats').style.display  = 'flex';
   }
 }

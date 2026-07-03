@@ -756,6 +756,7 @@ function abrirModal(tipo, data = null) {
 
   if (tipo === 'usuario') {
     const rolSup          = data?.rol === 'supervisor' ? 'selected' : '';
+    const rolGer          = data?.rol === 'gerencia'   ? 'selected' : '';
     const rolAdm          = data?.rol === 'admin'      ? 'selected' : '';
     const disabledAttr    = data ? 'disabled style="opacity:.6"' : '';
     const hintUsuario     = data ? '<div class="field-hint">El nombre de usuario no se puede cambiar</div>' : '';
@@ -793,6 +794,7 @@ function abrirModal(tipo, data = null) {
         '<select id="f-rol" onchange="toggleTurnoUsuario(this.value)">' +
           '<option value="">— Seleccioná el rol —</option>' +
           '<option value="supervisor" ' + rolSup + '>Supervisor — solo registro</option>' +
+          '<option value="gerencia" '   + rolGer + '>Gerencia — registro y estadísticas</option>' +
           '<option value="admin" '      + rolAdm + '>Administrador — acceso completo</option>' +
         '</select>' +
       '</div>' +
@@ -935,6 +937,7 @@ async function confirmarModal() {
       if (!usuario) { toast('Ingresá el usuario', 'fail'); return; }
       if (!rol)     { toast('Seleccioná el rol', 'fail'); return; }
       if (rol === 'supervisor' && !turno) { toast('Seleccioná el turno', 'fail'); return; }
+      // gerencia y admin pueden no tener turno asignado
       if (!state.editId && !password) { toast('Ingresá una contraseña', 'fail'); return; }
 
       if (state.editId) {
@@ -1024,7 +1027,7 @@ function renderUsuarios() {
     return;
   }
 
-  const rolBadge = { admin: 'badge-gold', supervisor: 'badge-success' };
+  const rolBadge = { admin: 'badge-gold', supervisor: 'badge-success', gerencia: 'badge-muted' };
 
   list.innerHTML = state.usuarios.map(u =>
     '<div class="item-card">' +

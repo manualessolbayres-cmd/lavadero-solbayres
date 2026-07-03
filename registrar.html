@@ -789,7 +789,7 @@ function renderUserBadge(session, containerId) {
 // ── FIN AUTH MODULE ─────────────────────────────────────────────
 
 
-const session = requireAuth(['supervisor','admin'], 'Registro de lavados');
+const session = requireAuth(['supervisor','gerencia','admin'], 'Registro de lavados');
 
 // ── Escape XSS: sanitizar cualquier dato de usuario antes de insertar en el DOM ──
 function esc(str) {
@@ -896,7 +896,7 @@ function showPage(name) {
 function abrirModalLavado() {
   resetModalForm();
 
-  const esSupervisor = session?.rol === 'supervisor';
+  const esSupervisor = session?.rol === 'supervisor'; // gerencia y admin eligen turno manualmente
   const wrap         = document.getElementById('m-turno-wrap');
   const supWrap      = document.getElementById('m-supervisor-wrap');
   const turnoNames   = { 1:'Mañana', 2:'Tarde', 3:'Noche' };
@@ -1126,7 +1126,7 @@ function renderSupervisores() {
 // ── Validación ─────────────────────────────────────────────────
 function mCheckForm() {
   const { unidad, tipo } = state.sel;
-  const esSupervisor = session?.rol === 'supervisor';
+  const esSupervisor = session?.rol === 'supervisor'; // gerencia y admin eligen turno manualmente
   const turno        = state.sel.turno;
 
   let supervisor = state.sel.supervisor;
@@ -1147,14 +1147,14 @@ function mCheckForm() {
 
 // ── Paso 2: Confirmación ───────────────────────────────────────
 function irAConfirmacion() {
-  const esSupervisor = session?.rol === 'supervisor';
+  const esSupervisor = session?.rol === 'supervisor'; // gerencia y admin eligen turno manualmente
 
   if (!esSupervisor) {
     state.sel.supervisor = document.getElementById('m-supervisor').value;
   }
   // Resolver turno y supervisor desde la tabla de supervisores (fuente de verdad)
   if (esSupervisor) {
-    // Buscar el supervisor por turno de sesión, o por nombre si no hay turno
+    // Supervisor: turno y supervisor se autocompletan desde la sesión
     let sup = null;
     const turnoSes = (session?.turno && session.turno !== '') ? parseInt(session.turno) : null;
     if (turnoSes) {
@@ -1169,6 +1169,10 @@ function irAConfirmacion() {
       state.sel.supervisor = String(sup.id);
       state.sel.turno      = parseInt(sup.turno) || turnoSes || null;
     }
+  }
+  // Gerencia y admin: leen turno y supervisor del formulario (ya seteados en state.sel)
+  if (!esSupervisor) {
+    state.sel.supervisor = document.getElementById('m-supervisor')?.value || state.sel.supervisor;
   }
 
   state.sel.obs       = document.getElementById('m-obs').value.trim();
@@ -1372,7 +1376,9 @@ function renderHistorial(q, desde, hasta) {
       '</div>' +
       '<div style="display:flex;align-items:center;gap:8px;">' +
         '<div class="reg-fecha">' + formatFechaCorta(r.fecha) + '</div>' +
-        '<button onclick="confirmarBorrar(' + r.id + ')" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:4px;border-radius:4px;transition:color .15s;" onmouseover="this.style.color=&quot;var(--danger)&quot;" onmouseout="this.style.color=&quot;var(--muted)&quot;">🗑</button>' +
+        (session?.rol === 'admin'
+          ? '<button onclick="confirmarBorrar(' + r.id + ')" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:4px;border-radius:4px;transition:color .15s;" onmouseover="this.style.color=&quot;var(--danger)&quot;" onmouseout="this.style.color=&quot;var(--muted)&quot;">🗑</button>'
+          : '') +
       '</div>' +
     '</div>';
   }).join('');

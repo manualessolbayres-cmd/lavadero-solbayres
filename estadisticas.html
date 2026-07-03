@@ -208,7 +208,7 @@ function logout() {
 
 const session = getSession();
 if (!session) { window.location.replace('login.html'); }
-if (session && session.rol !== 'admin') {
+if (session && session.rol !== 'admin' && session.rol !== 'gerencia') {
   window.location.replace('noautorizado.html?modulo=Estadísticas');
 }
 
