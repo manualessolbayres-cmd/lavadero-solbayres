@@ -203,6 +203,9 @@ nav{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px soli
       <span class="icon">🔐</span> Usuarios
       <span class="sidebar-count" id="cnt-usuarios">—</span>
     </button>
+    <button class="sidebar-btn" onclick="showSection('email',this)">
+      <span class="icon">📧</span> Email semanal
+    </button>
   </aside>
 
   <!-- CONTENIDO -->
@@ -276,6 +279,47 @@ nav{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px soli
       <div class="items-list" id="list-usuarios">
         <div class="skeleton"></div><div class="skeleton"></div>
       </div>
+    </div>
+
+    <!-- ══ EMAIL ══ -->
+    <div class="section" id="sec-email">
+      <div class="section-head">
+        <div>
+          <div class="section-head-title">Reporte semanal por email</div>
+          <div class="section-head-sub">Se envía automáticamente los lunes a las 8hs con el resumen de la semana</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+          <div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Estado del reporte</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px">Activá o desactivá el envío automático</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0">
+            <span style="font-size:13px;color:var(--muted)" id="email-status-label">Activo</span>
+            <div style="position:relative;width:44px;height:24px">
+              <input type="checkbox" id="email-toggle" onchange="toggleEmailActivo()" style="opacity:0;width:0;height:0;position:absolute">
+              <span id="email-toggle-track" onclick="document.getElementById('email-toggle').click()" style="position:absolute;inset:0;border-radius:12px;background:var(--success);cursor:pointer;transition:background .2s">
+                <span id="email-toggle-thumb" style="position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s;transform:translateX(20px)"></span>
+              </span>
+            </div>
+          </label>
+        </div>
+
+        <div class="field" style="margin-bottom:0">
+          <label>Destinatarios <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(separados por coma)</span></label>
+          <textarea id="email-destinatarios" placeholder="gerencia@ejemplo.com, admin@ejemplo.com" style="height:90px;resize:none;width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;padding:12px 14px;outline:none;font-family:inherit;transition:border-color .15s" onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+          <div class="field-hint">El reporte incluye los KPIs de la semana y el detalle completo en un archivo Excel adjunto.</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-gold" style="flex:1;min-width:160px" onclick="guardarEmailConfig()">Guardar configuración</button>
+        <button class="btn btn-ghost" style="flex:1;min-width:160px" onclick="enviarTestEmail()">Enviar reporte ahora (prueba)</button>
+      </div>
+
+      <div id="email-info" style="margin-top:16px;padding:14px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;color:var(--muted);line-height:1.7;display:none"></div>
     </div>
 
   </div>
@@ -373,7 +417,7 @@ const session = requireAuth(['admin'], 'Configuración');
 if (!session) { throw new Error('Sin sesión'); }
 
 
-const API = 'https://script.google.com/macros/s/AKfycbx57dI0tbWYo1bnbWvFWPlhIxlSEwJu2_GmDNp9M-zbZhq2Cli_VzSPEtYovis62qW6Wg/exec';
+const API = 'https://script.google.com/macros/s/AKfycbzUa9i-Y6ypCwC98eZ140veFHGU2Skhbu0CPeWM8gLQgT9G5gmCbaF2QtH4g4oKa_AkrQ/exec';
 
 const COLORES_TIPO = ['#4A90D9','#7B68EE','#F5A623','#50C878','#E74C3C','#1ABC9C','#9B59B6','#E67E22','#3498DB','#E91E8C'];
 
@@ -458,6 +502,7 @@ async function init() {
 
     renderAll();
     if (session) renderUserBadge(session, 'user-badge');
+    cargarEmailConfig();
 
   } catch(e) {
     toast('Error al cargar: ' + e.message, 'fail');
@@ -1087,6 +1132,84 @@ async function eliminarCrono(id) {
     renderCronogramas();
     toast('Cronograma eliminado', 'ok');
   } catch(e) { toast('Error: ' + e.message, 'fail'); }
+}
+
+// ── EMAIL SEMANAL ────────────────────────────────────────────
+async function cargarEmailConfig() {
+  try {
+    const d = await apig({ path:'email_config', action:'get' });
+    document.getElementById('email-destinatarios').value = d.destinatarios || '';
+    const activo = d.activo !== 'false';
+    setEmailToggle(activo);
+  } catch(e) {
+    console.warn('Email config no disponible:', e.message);
+  }
+}
+
+function setEmailToggle(activo) {
+  const toggle = document.getElementById('email-toggle');
+  const track  = document.getElementById('email-toggle-track');
+  const thumb  = document.getElementById('email-toggle-thumb');
+  const label  = document.getElementById('email-status-label');
+  if (!toggle) return;
+  toggle.checked = activo;
+  track.style.background   = activo ? 'var(--success)' : 'var(--border)';
+  thumb.style.transform    = activo ? 'translateX(20px)' : 'translateX(0)';
+  label.textContent        = activo ? 'Activo' : 'Inactivo';
+  label.style.color        = activo ? 'var(--success)' : 'var(--muted)';
+}
+
+function toggleEmailActivo() {
+  const activo = document.getElementById('email-toggle').checked;
+  setEmailToggle(activo);
+}
+
+async function guardarEmailConfig() {
+  const destinatarios = document.getElementById('email-destinatarios').value.trim();
+  const activo        = document.getElementById('email-toggle').checked ? 'true' : 'false';
+
+  // Validar emails básicamente
+  if (activo === 'true' && !destinatarios) {
+    toast('Ingresá al menos un destinatario', 'fail'); return;
+  }
+
+  try {
+    await apip({ path:'email_config', action:'update', destinatarios, activo });
+    toast('Configuración de email guardada', 'ok');
+    // Mostrar info
+    const info = document.getElementById('email-info');
+    const cant = destinatarios.split(',').filter(e => e.trim().includes('@')).length;
+    info.style.display = 'block';
+    info.innerHTML =
+      '📅 El reporte se envía automáticamente <strong>todos los lunes a las 8hs</strong><br>' +
+      '📨 Destinatarios configurados: <strong>' + cant + '</strong><br>' +
+      '📊 Contenido: KPIs de la semana + archivo Excel adjunto con el detalle completo';
+  } catch(e) { toast('Error: ' + e.message, 'fail'); }
+}
+
+async function enviarTestEmail() {
+  const destinatarios = document.getElementById('email-destinatarios').value.trim();
+  if (!destinatarios) { toast('Guardá los destinatarios antes de probar', 'fail'); return; }
+
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+  try {
+    await apig({ path:'email_config', action:'test' });
+    toast('✓ Reporte de prueba enviado — revisá tu bandeja', 'ok');
+  } catch(e) {
+    // El test se ejecuta via trigger manual en Apps Script, no via API
+    // Instrucción al admin
+    const info = document.getElementById('email-info');
+    info.style.display = 'block';
+    info.innerHTML =
+      '⚙️ Para enviar un reporte de prueba, abrí el editor de Apps Script y ejecutá la función <strong>testEnviarReporte()</strong>.<br>' +
+      'Esto enviará el reporte con los datos de la semana actual a los destinatarios configurados.';
+    toast('Revisá las instrucciones abajo', 'ok');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Enviar reporte ahora (prueba)';
+  }
 }
 
 // ── TOAST ──────────────────────────────────────────────────────
