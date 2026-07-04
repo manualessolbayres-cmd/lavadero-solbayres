@@ -184,7 +184,7 @@ main{padding:20px 20px 60px;max-width:1400px;margin:0 auto;}
 <div id="toast"></div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbwdEKyN1Q5-J7VrHKtPFpvHHNb68Fw9f8RXxEmczbBRYhHdGFucLUfVHIciq519-W9-pg/exec';
+const API = 'https://script.google.com/macros/s/AKfycbwblK4R26kN_CMQ4alWwEnzRlQ9QROyKGdkto343gqqCo9eTJDmGAXpPDNR587i0PRYYQ/exec';
 const AUTH_KEY = 'lav_session';
 
 // ── Auth ──────────────────────────────────────────────────────
@@ -214,6 +214,19 @@ if (session && session.rol !== 'admin' && session.rol !== 'gerencia') {
 
 // ── Estado ────────────────────────────────────────────────────
 let state = { registros:[], unidades:[], supervisores:[], tipos:[], charts:{} };
+
+function normalizarFecha(fecha) {
+  if (!fecha) return '';
+  if (fecha instanceof Date) return fecha.toISOString().slice(0,10);
+  const s = String(fecha);
+  if (s.includes('T')) return s.slice(0,10);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) {
+    const [d,m,y] = s.split('/');
+    return y + '-' + m + '-' + d;
+  }
+  return s.slice(0,10);
+}
 
 // ── API ───────────────────────────────────────────────────────
 async function get(params) {
@@ -282,8 +295,8 @@ function getRegistrosFiltrados() {
   const desde = document.getElementById('f-desde').value;
   const hasta = document.getElementById('f-hasta').value;
   let items = state.registros;
-  if (desde) items = items.filter(r => r.fecha && r.fecha.slice(0,10) >= desde);
-  if (hasta) items = items.filter(r => r.fecha && r.fecha.slice(0,10) <= hasta);
+  if (desde) items = items.filter(r => r.fecha && normalizarFecha(r.fecha) >= desde);
+  if (hasta) items = items.filter(r => r.fecha && normalizarFecha(r.fecha) <= hasta);
   return items;
 }
 
@@ -303,7 +316,7 @@ function calcularStats() {
 // ── KPIs ──────────────────────────────────────────────────────
 function renderKPIs(regs) {
   const uniqUnidades = new Set(regs.map(r => r.interno_id)).size;
-  const uniqDias     = new Set(regs.map(r => (r.fecha || '').slice(0,10)).filter(Boolean)).size;
+  const uniqDias     = new Set(regs.map(r => normalizarFecha(r.fecha)).filter(Boolean)).size;
   const promDia      = uniqDias > 0 ? (regs.length / uniqDias).toFixed(1) : 0;
   const uniqTipos    = new Set(regs.map(r => r.tipo_lavado)).size;
 
@@ -373,7 +386,7 @@ function renderChartSemana(regs) {
   destroyChart('semana');
   const dias = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
   const conteo = [0,0,0,0,0,0,0];
-  regs.forEach(r => { if (r.fecha) { const d = new Date(r.fecha.slice(0,10) + 'T00:00:00'); conteo[d.getDay()]++; } });
+  regs.forEach(r => { if (r.fecha) { const d = new Date(normalizarFecha(r.fecha) + 'T00:00:00'); conteo[d.getDay()]++; } });
   const ctx = document.getElementById('chart-semana').getContext('2d');
   state.charts['semana'] = new Chart(ctx, {
     type: 'bar',
@@ -389,7 +402,7 @@ function renderChartSemana(regs) {
 function renderChartEvolucion(regs) {
   destroyChart('evolucion');
   const conteo = {};
-  regs.forEach(r => { const d = (r.fecha || '').slice(0,10); if (d) conteo[d] = (conteo[d]||0)+1; });
+  regs.forEach(r => { const d = normalizarFecha(r.fecha); if (d) conteo[d] = (conteo[d]||0)+1; });
   const fechas = Object.keys(conteo).sort().slice(-30);
   const ctx    = document.getElementById('chart-evolucion').getContext('2d');
   state.charts['evolucion'] = new Chart(ctx, {

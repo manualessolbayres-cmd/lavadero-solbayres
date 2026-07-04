@@ -802,7 +802,7 @@ function esc(str) {
     .replace(/'/g, '&#x27;');
 }
 // ── Config ───────────────────────────────────────────────────
-const API = 'https://script.google.com/macros/s/AKfycbwdEKyN1Q5-J7VrHKtPFpvHHNb68Fw9f8RXxEmczbBRYhHdGFucLUfVHIciq519-W9-pg/exec';
+const API = 'https://script.google.com/macros/s/AKfycbwblK4R26kN_CMQ4alWwEnzRlQ9QROyKGdkto343gqqCo9eTJDmGAXpPDNR587i0PRYYQ/exec';
 
 // ── Estado global ─────────────────────────────────────────────
 let state = {
@@ -1019,12 +1019,13 @@ function normalizarFecha(fecha) {
   // Normaliza cualquier formato de fecha a yyyy-MM-dd para comparación
   if (!fecha) return '';
   if (fecha instanceof Date) {
-    return fecha.getFullYear() + '-' +
-      String(fecha.getMonth()+1).padStart(2,'0') + '-' +
-      String(fecha.getDate()).padStart(2,'0');
+    // Usar UTC para evitar desfase de zona horaria
+    return fecha.toISOString().slice(0,10);
   }
   const s = String(fecha);
-  // Formato yyyy-MM-dd HH:mm:ss → tomar solo los 10 primeros caracteres
+  // Formato ISO con zona horaria: 2026-07-04T03:00:00.000Z
+  if (s.includes('T')) return s.slice(0,10);
+  // Formato yyyy-MM-dd HH:mm:ss → tomar solo los 10 primeros
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
   // Formato dd/MM/yyyy → convertir
   if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) {
