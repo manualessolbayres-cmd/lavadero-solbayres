@@ -1349,23 +1349,44 @@ function updateKPIs() {
 // ── Historial ─────────────────────────────────────────────────
 let registroABorrar = null;
 
-function aplicarFiltrosHist() {
+async function aplicarFiltrosHist() {
   const q     = (document.getElementById('search-hist')?.value || '').trim().toLowerCase();
   const desde = document.getElementById('hist-desde')?.value || '';
   const hasta = document.getElementById('hist-hasta')?.value || '';
-  renderHistorial(q, desde, hasta);
+
+  // Si hay rango de fechas, consultar al backend con ese rango (sin límite de 50)
+  if (desde || hasta) {
+    const params = { path: 'registros', action: 'list' };
+    if (desde) params.desde = desde;
+    if (hasta) params.hasta = hasta;
+    try {
+      const registrosPeriodo = await api(params);
+      renderHistorial(q, desde, hasta, registrosPeriodo);
+    } catch(e) {
+      toast('Error al cargar registros: ' + e.message, 'fail');
+    }
+  } else {
+    // Sin fechas: usar los últimos 50 ya cargados
+    renderHistorial(q, '', '');
+  }
 }
 
-function limpiarFiltrosHist() {
+async function limpiarFiltrosHist() {
   document.getElementById('search-hist').value  = '';
   document.getElementById('hist-desde').value   = '';
   document.getElementById('hist-hasta').value   = '';
+  // Recargar los últimos 50
+  try {
+    const registros = await api({ path: 'registros', action: 'list', limit: 50 });
+    state.registros = registros;
+  } catch(e) { /* usar los que ya tiene */ }
   renderHistorial('', '', '');
 }
 
-function renderHistorial(q, desde, hasta) {
+function renderHistorial(q, desde, hasta, registrosExtra) {
   const list = document.getElementById('historial-list');
-  let items  = state.registros;
+  // Si vienen registros del backend para el período, usarlos; si no, los 50 locales
+  let items  = registrosExtra !== undefined ? registrosExtra : state.registros;
 
   if (q) {
     const unidadesMatch = state.unidades
@@ -1449,18 +1470,30 @@ async function ejecutarBorrado() {
 }
 
 // ── Exportar Excel ─────────────────────────────────────────────
-function exportarExcel() {
+async function exportarExcel() {
   const q     = (document.getElementById('search-hist')?.value || '').trim().toLowerCase();
   const desde = document.getElementById('hist-desde')?.value || '';
   const hasta = document.getElementById('hist-hasta')?.value || '';
 
   let items = state.registros;
+
+  // Si hay rango de fechas, consultar al backend completo
+  if (desde || hasta) {
+    try {
+      const params = { path: 'registros', action: 'list' };
+      if (desde) params.desde = desde;
+      if (hasta) params.hasta = hasta;
+      items = await api(params);
+    } catch(e) {
+      toast('Error al obtener registros: ' + e.message, 'fail');
+      return;
+    }
+  }
+
   if (q) {
     const ids = state.unidades.filter(u => String(u.nro_interno).toLowerCase().includes(q)).map(u => String(u.id));
     items = items.filter(r => ids.includes(String(r.interno_id)));
   }
-  if (desde) items = items.filter(r => r.fecha && normalizarFecha(r.fecha) >= desde);
-  if (hasta) items = items.filter(r => r.fecha && normalizarFecha(r.fecha) <= hasta);
 
   if (items.length === 0) { toast('Sin registros para exportar', 'fail'); return; }
 
