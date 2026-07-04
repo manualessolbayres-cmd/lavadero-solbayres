@@ -1015,6 +1015,25 @@ function hoyISO() {
     String(d.getDate()).padStart(2,'0');
 }
 
+function normalizarFecha(fecha) {
+  // Normaliza cualquier formato de fecha a yyyy-MM-dd para comparación
+  if (!fecha) return '';
+  if (fecha instanceof Date) {
+    return fecha.getFullYear() + '-' +
+      String(fecha.getMonth()+1).padStart(2,'0') + '-' +
+      String(fecha.getDate()).padStart(2,'0');
+  }
+  const s = String(fecha);
+  // Formato yyyy-MM-dd HH:mm:ss → tomar solo los 10 primeros caracteres
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  // Formato dd/MM/yyyy → convertir
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(s)) {
+    const [d,m,y] = s.split('/');
+    return y + '-' + m + '-' + d;
+  }
+  return s.slice(0,10);
+}
+
 // ── Interno: input de texto ────────────────────────────────────
 function onInternoTexto(val) {
   const q = val.trim();
@@ -1353,8 +1372,8 @@ function renderHistorial(q, desde, hasta) {
       .map(u => String(u.id));
     items = items.filter(r => unidadesMatch.includes(String(r.interno_id)));
   }
-  if (desde) items = items.filter(r => r.fecha && r.fecha.slice(0,10) >= desde);
-  if (hasta) items = items.filter(r => r.fecha && r.fecha.slice(0,10) <= hasta);
+  if (desde) items = items.filter(r => r.fecha && normalizarFecha(r.fecha) >= desde);
+  if (hasta) items = items.filter(r => r.fecha && normalizarFecha(r.fecha) <= hasta);
 
   const count = document.getElementById('hist-count');
   if (count) count.textContent = items.length + ' registro' + (items.length !== 1 ? 's' : '');
@@ -1439,8 +1458,8 @@ function exportarExcel() {
     const ids = state.unidades.filter(u => String(u.nro_interno).toLowerCase().includes(q)).map(u => String(u.id));
     items = items.filter(r => ids.includes(String(r.interno_id)));
   }
-  if (desde) items = items.filter(r => r.fecha && r.fecha.slice(0,10) >= desde);
-  if (hasta) items = items.filter(r => r.fecha && r.fecha.slice(0,10) <= hasta);
+  if (desde) items = items.filter(r => r.fecha && normalizarFecha(r.fecha) >= desde);
+  if (hasta) items = items.filter(r => r.fecha && normalizarFecha(r.fecha) <= hasta);
 
   if (items.length === 0) { toast('Sin registros para exportar', 'fail'); return; }
 
@@ -1457,7 +1476,7 @@ function exportarExcel() {
       String(unidad?.nro_interno || '').padStart(4,'0'),
       unidad?.modelo_nombre || '',
       tipo?.nombre || r.tipo_lavado,
-      r.fecha ? r.fecha.slice(0,10) : '',
+      r.fecha ? normalizarFecha(r.fecha) : '',
       r.turno || '',
       sup?.nombre || '',
       r.observaciones || '',
@@ -1492,9 +1511,11 @@ function formatFecha(str) {
 }
 function formatFechaCorta(str) {
   if (!str) return '—';
-  const d = new Date(str);
+  // Normalizar antes de parsear para evitar errores de zona horaria
+  const normalizada = normalizarFecha(str);
+  const d = new Date(normalizada + 'T00:00:00');
   return d.toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit' }) + '\n' +
-         d.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' });
+         (String(str).length > 10 ? String(str).slice(11,16) : '');
 }
 
 // ── Toast ─────────────────────────────────────────────────────
