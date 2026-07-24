@@ -126,6 +126,12 @@ nav{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px soli
 .crono-select:focus{border-color:var(--gold);}
 .crono-save{opacity:0;transition:opacity .2s;}
 .crono-pausado{opacity:.55;}
+.crono-modelos{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);width:100%;}
+.crono-modelos-label{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:2px;}
+.modelo-chip{padding:4px 10px;border-radius:999px;font-size:11px;font-weight:600;background:var(--bg3);color:var(--muted);border:1px solid var(--border);cursor:pointer;transition:all .15s;user-select:none;}
+.modelo-chip:hover{border-color:var(--gold);}
+.modelo-chip.selected{background:var(--gold);color:var(--bg);border-color:var(--gold);}
+.modelo-chip-hint{font-size:11px;color:var(--muted);font-style:italic;}
 .crono-pausado .crono-tipo{color:var(--muted);}
 .crono-card.dirty .crono-save{opacity:1;}
 
@@ -417,7 +423,7 @@ const session = requireAuth(['admin'], 'Configuración');
 if (!session) { throw new Error('Sin sesión'); }
 
 
-const API = 'https://script.google.com/macros/s/AKfycbwblK4R26kN_CMQ4alWwEnzRlQ9QROyKGdkto343gqqCo9eTJDmGAXpPDNR587i0PRYYQ/exec';
+const API = 'https://script.google.com/macros/s/AKfycbwev9bq99cm_hiyBfJDwT5dxizVEWqDuBTAkRZcd7xJrhmLjGciD2Tkp4ISIzo6sN_FBg/exec';
 
 const COLORES_TIPO = ['#4A90D9','#7B68EE','#F5A623','#50C878','#E74C3C','#1ABC9C','#9B59B6','#E67E22','#3498DB','#E91E8C'];
 
@@ -641,6 +647,14 @@ function renderCronogramas() {
       f.charAt(0).toUpperCase() + f.slice(1) + '</option>'
     ).join('');
 
+    const modelosSel = String(cr.modelos_aplicables || '').split(',').map(s => s.trim()).filter(Boolean);
+    const chipsModelos = state.modelos
+      .filter(m => m.activo !== false && String(m.activo) !== 'FALSE')
+      .map(m => {
+        const sel = modelosSel.includes(String(m.id));
+        return '<span class="modelo-chip' + (sel ? ' selected' : '') + '" data-crono="' + cr.id + '" data-modelo="' + m.id + '" onclick="toggleModeloCrono(' + cr.id + ',' + m.id + ')" ' + (!activo ? 'style="pointer-events:none;opacity:.5"' : '') + '>' + esc(m.nombre) + '</span>';
+      }).join('');
+
     return '<div class="crono-card' + (!activo ? ' crono-pausado' : '') + '" id="crono-' + cr.id + '">' +
       '<div>' +
         '<div class="crono-tipo" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
@@ -659,6 +673,11 @@ function renderCronogramas() {
         '<button class="btn btn-gold btn-sm crono-save" id="crono-save-' + cr.id + '" onclick="guardarCrono(' + cr.id + ')">Guardar</button>' +
         '<button class="btn btn-ghost btn-sm btn-icon" onclick="toggleCrono(' + cr.id + ', ' + activo + ')" title="' + (activo ? 'Pausar' : 'Activar') + '">' + (activo ? '⏸' : '▶') + '</button>' +
         '<button class="btn btn-danger btn-sm btn-icon" onclick="eliminarCrono(' + cr.id + ')" title="Eliminar">🗑</button>' +
+      '</div>' +
+      '<div class="crono-modelos">' +
+        '<span class="crono-modelos-label">Aplica a:</span>' +
+        (chipsModelos || '<span style="font-size:11px;color:var(--muted)">Sin modelos cargados</span>') +
+        (modelosSel.length === 0 ? '<span class="modelo-chip-hint">Todos los modelos (sin restricción)</span>' : '') +
       '</div>' +
     '</div>';
   }).join('');
@@ -849,6 +868,11 @@ function abrirModal(tipo, data = null) {
   }
 
   if (tipo === 'cronograma') {
+    const chipsModelosNuevo = state.modelos
+      .filter(m => m.activo !== false && String(m.activo) !== 'FALSE')
+      .map(m => '<span class="modelo-chip" data-modelo-nuevo="' + m.id + '" onclick="this.classList.toggle(&quot;selected&quot;)">' + esc(m.nombre) + '</span>')
+      .join('');
+
     body.innerHTML =
       '<div class="field">' +
         '<label>Nombre del cronograma</label>' +
@@ -872,6 +896,13 @@ function abrirModal(tipo, data = null) {
         '<label>Alerta antes del vencimiento (días)</label>' +
         '<input type="number" id="f-alerta-crono" min="0" max="30" value="2">' +
         '<div class="field-hint">Cuántos días antes del vencimiento el sistema marca la unidad como "Por vencer".</div>' +
+      '</div>' +
+      '<div class="field">' +
+        '<label>Modelos a los que aplica <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>' +
+        '<div id="modelos-nuevo-crono" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">' +
+          (chipsModelosNuevo || '<span style="font-size:12px;color:var(--muted)">No hay modelos cargados</span>') +
+        '</div>' +
+        '<div class="field-hint">Si no seleccionás ninguno, el cronograma aplica a todos los modelos de la flota.</div>' +
       '</div>';
     document.getElementById('modal-confirm').style.display = '';
     setTimeout(() => document.getElementById('f-nombre-crono').focus(), 100);
@@ -1009,6 +1040,11 @@ async function confirmarModal() {
       if (!nombre)         { toast('Ingresá el nombre del cronograma', 'fail'); return; }
       if (!dias || dias < 1) { toast('Ingresá una cantidad de días válida', 'fail'); return; }
 
+      // Leer modelos seleccionados (vacío = aplica a todos)
+      const modelosSelNuevo = Array.from(document.querySelectorAll('#modelos-nuevo-crono .modelo-chip.selected'))
+        .map(el => el.dataset.modeloNuevo);
+      const modelosAplicables = modelosSelNuevo.join(',');
+
       // 1. Crear el tipo de lavado nuevo en tipos_lavado
       const slug   = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'_').replace(/_+/g,'_').replace(/^_|_$/g,'');
       const colores= ['#4A90D9','#7B68EE','#F5A623','#50C878','#E74C3C','#1ABC9C','#9B59B6','#E67E22','#3498DB','#E91E8C','#2ECC71','#F39C12'];
@@ -1022,12 +1058,14 @@ async function confirmarModal() {
       // 2. Crear el cronograma asociado al nuevo tipo
       const resCrono = await apip({ path:'cronogramas', action:'create',
         tipo_lavado: slug, frecuencia_tipo: frec,
-        cada_x_dias: dias, alerta_dias_antes: alerta, activo: true });
+        cada_x_dias: dias, alerta_dias_antes: alerta, activo: true,
+        modelos_aplicables: modelosAplicables });
 
       state.cronogramas.push({
         id: resCrono.id, tipo_lavado: slug,
         frecuencia_tipo: frec, cada_x_dias: dias,
-        alerta_dias_antes: alerta, activo: true
+        alerta_dias_antes: alerta, activo: true,
+        modelos_aplicables: modelosAplicables
       });
 
       renderCronogramas();
@@ -1112,6 +1150,27 @@ async function sincronizarDiasCrono() {
   const dias = document.getElementById('f-dias-crono');
   const map  = { semanal:7, quincenal:15, mensual:30 };
   if (dias && map[frec]) dias.value = map[frec];
+}
+
+async function toggleModeloCrono(cronoId, modeloId) {
+  const cr = state.cronogramas.find(c => String(c.id) === String(cronoId));
+  if (!cr) return;
+
+  let modelosSel = String(cr.modelos_aplicables || '').split(',').map(s => s.trim()).filter(Boolean);
+  const idx = modelosSel.indexOf(String(modeloId));
+  if (idx >= 0) modelosSel.splice(idx, 1);
+  else modelosSel.push(String(modeloId));
+
+  const nuevoValor = modelosSel.join(',');
+
+  try {
+    await apip({ path:'cronogramas', action:'update', id: cronoId, modelos_aplicables: nuevoValor });
+    cr.modelos_aplicables = nuevoValor;
+    renderCronogramas();
+    toast(modelosSel.length === 0 ? 'Aplica a todos los modelos' : 'Modelos actualizados', 'ok');
+  } catch(e) {
+    toast('Error: ' + e.message, 'fail');
+  }
 }
 
 async function toggleCrono(id, activo) {
