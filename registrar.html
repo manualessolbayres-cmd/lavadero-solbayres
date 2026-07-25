@@ -676,6 +676,12 @@
     <button class="filter-tab" onclick="filtrarAlertas('al_dia')">Al día</button>
   </div>
 
+  <div class="form-row" style="margin-top:10px">
+    <select id="filtro-cronograma" onchange="filtrarPorCronograma(this.value)" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:15px;padding:11px 14px;outline:none;font-family:inherit;-webkit-appearance:none;background-image:url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236e7f96' d='M6 8L1 3h10z'/%3E%3C/svg%3E&quot;);background-repeat:no-repeat;background-position:right 14px center;padding-right:34px;">
+      <option value="">Todos los cronogramas</option>
+    </select>
+  </div>
+
   <div id="alertas-list"></div>
 </div>
 
@@ -802,7 +808,7 @@ function esc(str) {
     .replace(/'/g, '&#x27;');
 }
 // ── Config ───────────────────────────────────────────────────
-const API = 'https://script.google.com/macros/s/AKfycbwev9bq99cm_hiyBfJDwT5dxizVEWqDuBTAkRZcd7xJrhmLjGciD2Tkp4ISIzo6sN_FBg/exec';
+const API = 'https://script.google.com/macros/s/AKfycbzM9-E2QWNZ8M0n9jrnbkNZP2Muuu7s7q3JKUen5u7rwonbQDuYM_ng92z_aao_o3FMxA/exec';
 
 // ── Estado global ─────────────────────────────────────────────
 let state = {
@@ -812,6 +818,7 @@ let state = {
   alertas:     [],
   registros:   [],
   filtroAlerta:'todos',
+  filtroCronograma: '',
   sel: {
     unidad:    null,
     tipo:      null,
@@ -1301,10 +1308,39 @@ function filtrarAlertas(estado) {
   renderAlertas();
 }
 
+function poblarFiltroCronograma() {
+  const sel = document.getElementById('filtro-cronograma');
+  if (!sel || sel.dataset.poblado) return;
+  // Tomar tipos únicos presentes en las alertas, ordenados alfabéticamente
+  const vistos = new Set();
+  const opciones = [];
+  state.alertas.forEach(a => {
+    if (!vistos.has(a.tipo_lavado)) {
+      vistos.add(a.tipo_lavado);
+      opciones.push({ slug: a.tipo_lavado, nombre: a.tipo_nombre });
+    }
+  });
+  opciones.sort((a,b) => a.nombre.localeCompare(b.nombre));
+  opciones.forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = o.slug;
+    opt.textContent = o.nombre;
+    sel.appendChild(opt);
+  });
+  sel.dataset.poblado = '1';
+}
+
+function filtrarPorCronograma(slug) {
+  state.filtroCronograma = slug;
+  renderAlertas();
+}
+
 function renderAlertas() {
+  poblarFiltroCronograma();
   const list = document.getElementById('alertas-list');
   let items  = state.alertas;
   if (state.filtroAlerta !== 'todos') items = items.filter(a => a.estado === state.filtroAlerta);
+  if (state.filtroCronograma) items = items.filter(a => a.tipo_lavado === state.filtroCronograma);
 
   if (items.length === 0) {
     list.innerHTML = `<div class="empty"><div class="empty-icon">✓</div><p>Sin alertas en este filtro</p></div>`;
