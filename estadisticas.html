@@ -184,7 +184,7 @@ main{padding:20px 20px 60px;max-width:1400px;margin:0 auto;}
 <div id="toast"></div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbwagzdt3dPHis_1IMHzFnYGOFpk9z68oSkKBA9xO3IAC-Y4yM0i5n7IUoFYNfy87JcNQA/exec';
+const API = 'https://script.google.com/macros/s/AKfycbyi_cjBXw78BTChaV7TlbQpC4rEI_d6QBOIcIxOeK-5ST8OJ5_aFv5mYOqiNhzzVCDoWQ/exec';
 const AUTH_KEY = 'lav_session';
 
 function fmtInterno(nro) {
@@ -250,12 +250,15 @@ async function get(params) {
 // ── Init ──────────────────────────────────────────────────────
 async function init() {
   try {
-    const [reg, uni, sup, tip] = await Promise.all([
+    // /init trae los datos maestros ya cacheados en el servidor;
+    // los registros completos van aparte porque estadísticas necesita el histórico entero
+    const [init, reg] = await Promise.all([
+      get({ path:'init', limit_registros: 1 }),
       get({ path:'registros', action:'list', limit:9999 }),
-      get({ path:'unidades',  action:'list' }),
-      get({ path:'supervisores', action:'list' }),
-      get({ path:'tipos_lavado', action:'list' }),
     ]);
+    const uni = init.unidades;
+    const sup = init.supervisores;
+    const tip = init.tipos;
     state.registros    = reg;
     state.unidades     = uni;
     state.supervisores = sup;

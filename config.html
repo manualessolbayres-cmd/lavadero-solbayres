@@ -326,6 +326,18 @@ nav{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px soli
       </div>
 
       <div id="email-info" style="margin-top:16px;padding:14px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;color:var(--muted);line-height:1.7;display:none"></div>
+
+      <div style="margin-top:28px;padding-top:22px;border-top:1px solid var(--border)">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">Mantenimiento</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+          El sistema guarda temporalmente los datos de flota, modelos y cronogramas para responder más rápido.
+          Si editaste el Google Sheet directamente y no ves los cambios reflejados, usá este botón para forzar la recarga.
+        </div>
+        <button class="btn btn-ghost" style="width:100%;padding:10px 16px;font-size:13px;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:7px" onclick="limpiarCache()" id="btn-limpiar-cache">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Limpiar caché y recargar datos
+        </button>
+      </div>
     </div>
 
   </div>
@@ -423,7 +435,7 @@ const session = requireAuth(['admin'], 'Configuración');
 if (!session) { throw new Error('Sin sesión'); }
 
 
-const API = 'https://script.google.com/macros/s/AKfycbwagzdt3dPHis_1IMHzFnYGOFpk9z68oSkKBA9xO3IAC-Y4yM0i5n7IUoFYNfy87JcNQA/exec';
+const API = 'https://script.google.com/macros/s/AKfycbyi_cjBXw78BTChaV7TlbQpC4rEI_d6QBOIcIxOeK-5ST8OJ5_aFv5mYOqiNhzzVCDoWQ/exec';
 
 const COLORES_TIPO = ['#4A90D9','#7B68EE','#F5A623','#50C878','#E74C3C','#1ABC9C','#9B59B6','#E67E22','#3498DB','#E91E8C'];
 
@@ -1268,6 +1280,21 @@ async function enviarTestEmail() {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Enviar reporte ahora (prueba)';
+  }
+}
+
+// ── MANTENIMIENTO ────────────────────────────────────────────
+async function limpiarCache() {
+  const btn = document.getElementById('btn-limpiar-cache');
+  const txt = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Limpiando...'; }
+  try {
+    await apig({ path:'cache', action:'clear' });
+    toast('Caché limpiado — recargando datos...', 'ok');
+    setTimeout(() => window.location.reload(), 900);
+  } catch(e) {
+    toast('Error: ' + e.message, 'fail');
+    if (btn) { btn.disabled = false; btn.innerHTML = txt; }
   }
 }
 
