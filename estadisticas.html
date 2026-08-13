@@ -184,8 +184,14 @@ main{padding:20px 20px 60px;max-width:1400px;margin:0 auto;}
 <div id="toast"></div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbzM9-E2QWNZ8M0n9jrnbkNZP2Muuu7s7q3JKUen5u7rwonbQDuYM_ng92z_aao_o3FMxA/exec';
+const API = 'https://script.google.com/macros/s/AKfycbwagzdt3dPHis_1IMHzFnYGOFpk9z68oSkKBA9xO3IAC-Y4yM0i5n7IUoFYNfy87JcNQA/exec';
 const AUTH_KEY = 'lav_session';
+
+function fmtInterno(nro) {
+  // Solo rellena con ceros si el interno es numérico (ej: 3001 → 3001, "Contenedor" → "Contenedor")
+  const s = String(nro ?? '');
+  return /^\d+$/.test(s) ? s.padStart(4, '0') : s;
+}
 
 // ── Auth ──────────────────────────────────────────────────────
 function getSession() {
@@ -455,7 +461,7 @@ function renderTablaUnidades(regs) {
         const pct = total > 0 ? ((u.count/total)*100).toFixed(1) : 0;
         return '<div class="tabla-row" style="grid-template-columns:40px 1fr 100px 120px">' +
           '<span class="rank">' + (i+1) + '</span>' +
-          '<span><strong>' + String(u.nro).padStart(4,'0') + '</strong> <span style="color:var(--muted);font-size:12px">' + u.modelo + '</span></span>' +
+          '<span><strong>' + fmtInterno(u.nro) + '</strong> <span style="color:var(--muted);font-size:12px">' + u.modelo + '</span></span>' +
           '<span style="font-weight:700;color:var(--gold)">' + u.count + '</span>' +
           '<span style="color:var(--muted)">' + pct + '%</span>' +
         '</div>';

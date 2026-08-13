@@ -567,7 +567,7 @@ main {
 <div class="refresh-bar"><div class="refresh-bar-fill" id="refresh-bar-fill"></div></div>
 
 <script>
-const API     = 'https://script.google.com/macros/s/AKfycbzM9-E2QWNZ8M0n9jrnbkNZP2Muuu7s7q3JKUen5u7rwonbQDuYM_ng92z_aao_o3FMxA/exec';
+const API     = 'https://script.google.com/macros/s/AKfycbwagzdt3dPHis_1IMHzFnYGOFpk9z68oSkKBA9xO3IAC-Y4yM0i5n7IUoFYNfy87JcNQA/exec';
 const REFRESH = 5 * 60 * 1000; // 5 minutos
 
 let state = {
@@ -722,7 +722,7 @@ function renderGrilla() {
       <div class="unidad-card ${u.peor}">
         <div class="unidad-header">
           <div>
-            <div class="unidad-interno">${String(u.nro_interno).padStart(4,'0')}</div>
+            <div class="unidad-interno">${fmtInterno(u.nro_interno)}</div>
             <div class="unidad-modelo">${u.modelo || '—'}</div>
           </div>
           <div class="estado-dot"></div>
@@ -828,7 +828,7 @@ function renderCriticos() {
       <div class="critico-item">
         <div class="critico-rank">${i + 1}</div>
         <div class="critico-info">
-          <div class="critico-interno">${String(u.nro_interno).padStart(4,'0')}</div>
+          <div class="critico-interno">${fmtInterno(u.nro_interno)}</div>
           <div class="critico-modelo">${u.modelo || '—'}</div>
           <div class="critico-lavados">${lavsHTML}</div>
         </div>
