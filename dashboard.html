@@ -567,12 +567,19 @@ main {
 <div class="refresh-bar"><div class="refresh-bar-fill" id="refresh-bar-fill"></div></div>
 
 <script>
-const API     = 'https://script.google.com/macros/s/AKfycbyi_cjBXw78BTChaV7TlbQpC4rEI_d6QBOIcIxOeK-5ST8OJ5_aFv5mYOqiNhzzVCDoWQ/exec';
+const API     = 'https://script.google.com/macros/s/AKfycbwRPKU-4hcREZmyWpnQlHG6EM0lBf7gePhfK4KfU_H2liqOcwEZSMM2ftqlPoNKTUOnEA/exec';
 const REFRESH = 5 * 60 * 1000; // 5 minutos
+
+function fmtInterno(nro) {
+  // Solo rellena con ceros si el interno es numérico ("Contenedor" queda igual)
+  const s = String(nro ?? '');
+  return /^\d+$/.test(s) ? s.padStart(4, '0') : s;
+}
 
 let state = {
   dashboard: null,
-  alertas:   [],
+  grilla:    [],
+  criticos:  [],
   tipos:     [],
   filtro:    'todos',
 };
@@ -596,13 +603,13 @@ async function cargar(manual = false) {
   startBar();
 
   try {
-    const [dash, alertas] = await Promise.all([
-      get({ path: 'dashboard', top_criticos: 20 }),
-      get({ path: 'alertas' }),
-    ]);
+    // El dashboard ya trae la grilla agrupada por unidad: evita traer
+    // el listado completo de alertas, que con flotas grandes es enorme.
+    const dash = await get({ path: 'dashboard', top_criticos: 20 });
 
     state.dashboard = dash;
-    state.alertas   = alertas;
+    state.grilla    = dash.grilla || [];
+    state.criticos  = dash.criticos || [];
     state.tipos     = dash.tipos || [];
 
     renderKPIs();
@@ -615,6 +622,13 @@ async function cargar(manual = false) {
 
   } catch(e) {
     console.error(e);
+    const grid = document.getElementById('unidades-grid');
+    if (grid) grid.innerHTML =
+      '<div class="empty-state" style="grid-column:1/-1">' +
+      '<div class="empty-icon">!</div>' +
+      '<p>No se pudo cargar la flota</p>' +
+      '<p style="font-size:12px;color:var(--muted);margin-top:6px">' + (e.message || 'Error de conexión') + '</p>' +
+      '</div>';
   } finally {
     btn.classList.remove('loading');
     refreshTimer = setTimeout(() => cargar(), REFRESH);
@@ -655,40 +669,20 @@ function setFiltro(f, el) {
 // ── Grilla de unidades ─────────────────────────────────────────
 function renderGrilla() {
   const grid = document.getElementById('unidades-grid');
+  const ordenEstado = { vencido: 0, proximo: 1, al_dia: 2 };
 
-  // Agrupar alertas por unidad
-  const porUnidad = {};
-  state.alertas.forEach(a => {
-    const k = String(a.unidad_id);
-    if (!porUnidad[k]) {
-      porUnidad[k] = {
-        id:          a.unidad_id,
-        nro_interno: a.nro_interno,
-        modelo:      a.modelo_nombre,
-        lavados:     [],
-        peor:        'al_dia',
-      };
-    }
-    porUnidad[k].lavados.push(a);
-    const orden = { vencido: 0, proximo: 1, al_dia: 2 };
-    if ((orden[a.estado] ?? 2) < (orden[porUnidad[k].peor] ?? 2)) {
-      porUnidad[k].peor = a.estado;
-    }
-  });
+  // La grilla ya viene agrupada por unidad desde el backend
+  // i: interno · m: modelo · p: peor estado · l: lavados pendientes · d: cantidad al día
+  let unidades = (state.grilla || []).slice();
 
-  let unidades = Object.values(porUnidad);
-
-  // Filtrar
   if (state.filtro !== 'todos') {
-    unidades = unidades.filter(u => u.peor === state.filtro);
+    unidades = unidades.filter(u => u.p === state.filtro);
   }
 
-  // Ordenar: peor estado primero, luego por interno
-  const ordenEstado = { vencido: 0, proximo: 1, al_dia: 2 };
   unidades.sort((a, b) => {
-    const oe = (ordenEstado[a.peor] ?? 2) - (ordenEstado[b.peor] ?? 2);
+    const oe = (ordenEstado[a.p] ?? 2) - (ordenEstado[b.p] ?? 2);
     if (oe !== 0) return oe;
-    return String(a.nro_interno).localeCompare(String(b.nro_interno), undefined, { numeric: true });
+    return String(a.i).localeCompare(String(b.i), undefined, { numeric: true });
   });
 
   document.getElementById('count-unidades').textContent = unidades.length + ' unidades';
@@ -699,31 +693,20 @@ function renderGrilla() {
   }
 
   grid.innerHTML = unidades.map(u => {
-    // Ordenar lavados por estado y días
-    const lavs = [...u.lavados].sort((a, b) => {
-      const oe = (ordenEstado[a.estado] ?? 2) - (ordenEstado[b.estado] ?? 2);
-      if (oe !== 0) return oe;
-      return (a.dias_restantes ?? -999) - (b.dias_restantes ?? -999);
-    });
-
-    // Solo los pendientes (vencidos + proximos) + al_dia resumido
-    const pendientes = lavs.filter(l => l.estado !== 'al_dia');
-    const alDia      = lavs.filter(l => l.estado === 'al_dia');
-
-    const rowsHTML = pendientes.map(l => lavRow(l)).join('');
-    const alDiaHTML = alDia.length > 0
+    const rowsHTML  = (u.l || []).map(l => lavRow(l)).join('');
+    const alDiaHTML = (u.d > 0)
       ? `<div class="lav-row" style="margin-top:4px;padding-top:4px;border-top:1px solid var(--border)">
-           <span style="font-size:10px;color:var(--muted)">${alDia.length} lavado${alDia.length > 1 ? 's' : ''} al día</span>
+           <span style="font-size:10px;color:var(--muted)">${u.d} lavado${u.d > 1 ? 's' : ''} al día</span>
            <span style="color:var(--success);font-size:11px">✓</span>
          </div>`
       : '';
 
     return `
-      <div class="unidad-card ${u.peor}">
+      <div class="unidad-card ${u.p}">
         <div class="unidad-header">
           <div>
-            <div class="unidad-interno">${fmtInterno(u.nro_interno)}</div>
-            <div class="unidad-modelo">${u.modelo || '—'}</div>
+            <div class="unidad-interno">${fmtInterno(u.i)}</div>
+            <div class="unidad-modelo">${u.m || '—'}</div>
           </div>
           <div class="estado-dot"></div>
         </div>
@@ -737,28 +720,28 @@ function renderGrilla() {
 }
 
 function lavRow(l) {
-  const tipo  = state.tipos.find(t => t.slug === l.tipo_lavado);
-  const color = tipo?.color_badge || '#6e7f96';
+  // l = { n: nombre del tipo, c: color, e: estado, r: días restantes }
+  const color = l.c || '#6e7f96';
   let diasTxt, diasClass;
 
-  if (l.dias_restantes === null) {
+  if (l.r === null || l.r === undefined) {
     diasTxt   = 'Sin reg.';
     diasClass = 'dias-vencido';
-  } else if (l.dias_restantes < 0) {
-    diasTxt   = `${Math.abs(l.dias_restantes)}d`;
+  } else if (l.r < 0) {
+    diasTxt   = `${Math.abs(l.r)}d`;
     diasClass = 'dias-vencido';
-  } else if (l.dias_restantes === 0) {
+  } else if (l.r === 0) {
     diasTxt   = 'Hoy';
     diasClass = 'dias-proximo';
   } else {
-    diasTxt   = `+${l.dias_restantes}d`;
-    diasClass = l.estado === 'proximo' ? 'dias-proximo' : 'dias-aldia';
+    diasTxt   = `+${l.r}d`;
+    diasClass = l.e === 'proximo' ? 'dias-proximo' : 'dias-aldia';
   }
 
   return `
     <div class="lav-row">
       <span class="lav-badge" style="background:${color}22;color:${color};border:1px solid ${color}44">
-        ${l.tipo_nombre}
+        ${l.n}
       </span>
       <span class="lav-dias ${diasClass}">${diasTxt}</span>
     </div>
@@ -769,24 +752,22 @@ function lavRow(l) {
 function renderCriticos() {
   const list = document.getElementById('criticos-list');
 
-  // Agrupar por unidad solo vencidos + proximos
+  // Agrupar los críticos que ya vienen filtrados del backend
   const porUnidad = {};
-  state.alertas
-    .filter(a => a.estado !== 'al_dia')
-    .forEach(a => {
-      const k = String(a.unidad_id);
-      if (!porUnidad[k]) {
-        porUnidad[k] = {
-          nro_interno: a.nro_interno,
-          modelo:      a.modelo_nombre,
-          lavados:     [],
-          minDias:     Infinity,
-        };
-      }
-      porUnidad[k].lavados.push(a);
-      const d = a.dias_restantes ?? -9999;
-      if (d < porUnidad[k].minDias) porUnidad[k].minDias = d;
-    });
+  (state.criticos || []).forEach(a => {
+    const k = String(a.nro_interno);
+    if (!porUnidad[k]) {
+      porUnidad[k] = {
+        nro_interno: a.nro_interno,
+        modelo:      a.modelo_nombre,
+        lavados:     [],
+        minDias:     Infinity,
+      };
+    }
+    porUnidad[k].lavados.push(a);
+    const d = a.dias_restantes ?? -9999;
+    if (d < porUnidad[k].minDias) porUnidad[k].minDias = d;
+  });
 
   const criticos = Object.values(porUnidad)
     .sort((a, b) => a.minDias - b.minDias)
