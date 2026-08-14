@@ -682,6 +682,12 @@
     </select>
   </div>
 
+  <button onclick="exportarAlertasExcel()" id="btn-export-alertas" class="btn btn-ghost" style="width:100%;margin-top:12px;padding:9px 16px;font-size:13px;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:6px;">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Exportar Excel
+  </button>
+  <div id="alertas-count" style="font-size:12px;color:var(--muted);text-align:right;margin-top:6px"></div>
+
   <div id="alertas-list"></div>
 </div>
 
@@ -1348,6 +1354,12 @@ function renderAlertas() {
   if (state.filtroAlerta !== 'todos') items = items.filter(a => a.estado === state.filtroAlerta);
   if (state.filtroCronograma) items = items.filter(a => a.tipo_lavado === state.filtroCronograma);
 
+  // Guardar lo que se está mostrando para poder exportarlo tal cual
+  state.alertasVisibles = items;
+
+  const cnt = document.getElementById('alertas-count');
+  if (cnt) cnt.textContent = items.length + ' alerta' + (items.length !== 1 ? 's' : '');
+
   if (items.length === 0) {
     list.innerHTML = `<div class="empty"><div class="empty-icon">✓</div><p>Sin alertas en este filtro</p></div>`;
     return;
@@ -1530,6 +1542,63 @@ async function ejecutarBorrado() {
     btn.textContent = 'Eliminar';
     btn.disabled = false;
   }
+}
+
+// ── Exportar Alertas a Excel ───────────────────────────────────
+function exportarAlertasExcel() {
+  const items = state.alertasVisibles || [];
+  if (items.length === 0) { toast('Sin alertas para exportar', 'fail'); return; }
+
+  const nombreEstado = { vencido:'Vencido', proximo:'Por vencer', al_dia:'Al día' };
+
+  const bom = '\uFEFF';
+  const sep = ';';
+  const headers = ['Interno','Modelo','Tipo de lavado','Estado','Días restantes','Último lavado','Próximo vencimiento','Frecuencia (días)'];
+
+  const rows = items.map(a => {
+    const dias = a.dias_restantes === null
+      ? 'Sin registro'
+      : a.dias_restantes < 0
+        ? Math.abs(a.dias_restantes) + ' vencido'
+        : a.dias_restantes === 0
+          ? 'Vence hoy'
+          : a.dias_restantes;
+
+    return [
+      fmtInterno(a.nro_interno),
+      a.modelo_nombre || '',
+      a.tipo_nombre || a.tipo_lavado,
+      nombreEstado[a.estado] || a.estado,
+      dias,
+      a.ultima_fecha ? normalizarFecha(a.ultima_fecha) : 'Sin registros',
+      a.vencimiento  ? normalizarFecha(a.vencimiento)  : '—',
+      a.intervalo_dias || '',
+    ].map(v => '"' + String(v).replace(/"/g,'""') + '"').join(sep);
+  });
+
+  // Sufijo con los filtros aplicados, para identificar el archivo
+  let sufijo = '';
+  if (state.filtroAlerta && state.filtroAlerta !== 'todos') {
+    sufijo += '_' + (nombreEstado[state.filtroAlerta] || state.filtroAlerta).toLowerCase().replace(/\s+/g,'_');
+  }
+  if (state.filtroCronograma) {
+    const t = state.tipos.find(x => x.slug === state.filtroCronograma);
+    const nom = (t ? t.nombre : state.filtroCronograma);
+    sufijo += '_' + nom.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'_');
+  }
+  const hoy = hoyISO();
+
+  const csv  = bom + [headers.join(sep)].concat(rows).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'lavadero_alertas' + sufijo + '_' + hoy + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('✓ Exportado: ' + items.length + ' alerta' + (items.length !== 1 ? 's' : ''), 'ok');
 }
 
 // ── Exportar Excel ─────────────────────────────────────────────
