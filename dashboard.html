@@ -567,7 +567,7 @@ main {
 <div class="refresh-bar"><div class="refresh-bar-fill" id="refresh-bar-fill"></div></div>
 
 <script>
-const API     = 'https://script.google.com/macros/s/AKfycbwRPKU-4hcREZmyWpnQlHG6EM0lBf7gePhfK4KfU_H2liqOcwEZSMM2ftqlPoNKTUOnEA/exec';
+const API     = 'https://script.google.com/macros/s/AKfycbyJCaExjTC0rhQ-lIHXSZb0iuoddI0CNYktDmfZuSIfjzwPSF0IE-LJ-_cD7d4cIowVjw/exec';
 const REFRESH = 5 * 60 * 1000; // 5 minutos
 
 function fmtInterno(nro) {
@@ -588,9 +588,36 @@ let refreshTimer   = null;
 let barTimer       = null;
 
 // ── API ────────────────────────────────────────────────────────
+// ── Cliente HTTP robusto ──────────────────────────────────────
+// Apps Script devuelve HTML (no JSON) cuando falla del lado del servidor.
+// El tablero solo lee, así que reintenta solo hasta 3 veces.
+
+async function fetchJSON(url) {
+  let fallaServidor = false;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const res = await fetch(url);
+      const txt = await res.text();
+      if (txt.trim().charAt(0) === '<') { fallaServidor = true; throw new Error('html'); }
+      try {
+        return JSON.parse(txt);
+      } catch (e) {
+        fallaServidor = true;
+        throw new Error('html');
+      }
+    } catch (e) {
+      if (i === 2) {
+        throw new Error(fallaServidor
+          ? 'El servidor no respondió bien. Se reintenta en la próxima actualización.'
+          : 'Sin conexión con el servidor.');
+      }
+      await new Promise(r => setTimeout(r, 700 * (i + 1)));
+    }
+  }
+}
+
 async function get(params) {
-  const res  = await fetch(API + '?' + new URLSearchParams(params));
-  const data = await res.json();
+  const data = await fetchJSON(API + '?' + new URLSearchParams(params));
   if (!data.ok) throw new Error(data.error);
   return data.data;
 }

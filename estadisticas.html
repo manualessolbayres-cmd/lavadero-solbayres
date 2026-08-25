@@ -184,7 +184,7 @@ main{padding:20px 20px 60px;max-width:1400px;margin:0 auto;}
 <div id="toast"></div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbwRPKU-4hcREZmyWpnQlHG6EM0lBf7gePhfK4KfU_H2liqOcwEZSMM2ftqlPoNKTUOnEA/exec';
+const API = 'https://script.google.com/macros/s/AKfycbyJCaExjTC0rhQ-lIHXSZb0iuoddI0CNYktDmfZuSIfjzwPSF0IE-LJ-_cD7d4cIowVjw/exec';
 const AUTH_KEY = 'lav_session';
 
 function fmtInterno(nro) {
@@ -235,11 +235,50 @@ function normalizarFecha(fecha) {
 }
 
 // ── API ───────────────────────────────────────────────────────
+// ── Cliente HTTP robusto ──────────────────────────────────────
+// Apps Script devuelve una página HTML (no JSON) cuando falla del lado del
+// servidor: timeout, ejecuciones simultáneas o caída momentánea.
+// Las lecturas se reintentan solas; las escrituras NO, para no duplicar datos.
+
+function esAccionEscritura(params) {
+  const a = String(params.action || '').toLowerCase();
+  return a === 'create' || a === 'update' || a === 'delete';
+}
+
+async function fetchJSON(url, opts, esEscritura) {
+  const intentos = esEscritura ? 1 : 3;
+  let fallaServidor = false;
+
+  for (let i = 0; i < intentos; i++) {
+    try {
+      const res = await fetch(url, opts);
+      const txt = await res.text();
+      if (txt.trim().charAt(0) === '<') { fallaServidor = true; throw new Error('html'); }
+      try {
+        return JSON.parse(txt);
+      } catch (e) {
+        fallaServidor = true;
+        throw new Error('html');
+      }
+    } catch (e) {
+      const ultimo = (i === intentos - 1);
+      if (ultimo) {
+        if (fallaServidor) {
+          throw new Error(esEscritura
+            ? 'El servidor no respondió bien. Verificá si el cambio se guardó antes de repetirlo.'
+            : 'El servidor no respondió bien. Esperá unos segundos y probá de nuevo.');
+        }
+        throw new Error('Sin conexión con el servidor. Verificá tu internet.');
+      }
+      await new Promise(r => setTimeout(r, 700 * (i + 1)));
+    }
+  }
+}
+
 async function get(params) {
   const s = getSession();
   const withToken = (s && s.token) ? { ...params, token: s.token } : params;
-  const r = await fetch(API + '?' + new URLSearchParams(withToken));
-  const d = await r.json();
+  const d = await fetchJSON(API + '?' + new URLSearchParams(withToken), undefined, false);
   if (!d.ok) {
     if (d.code === 401) { sessionStorage.removeItem(AUTH_KEY); window.location.replace('login.html'); }
     throw new Error(d.error);

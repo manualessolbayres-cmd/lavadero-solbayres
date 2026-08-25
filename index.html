@@ -334,12 +334,15 @@ function renderUserBadge(session, containerId) {
 
 const session = requireAuth(['supervisor','gerencia','admin'], 'Inicio');
 
-const API = 'https://script.google.com/macros/s/AKfycbwRPKU-4hcREZmyWpnQlHG6EM0lBf7gePhfK4KfU_H2liqOcwEZSMM2ftqlPoNKTUOnEA/exec';
+const API = 'https://script.google.com/macros/s/AKfycbyJCaExjTC0rhQ-lIHXSZb0iuoddI0CNYktDmfZuSIfjzwPSF0IE-LJ-_cD7d4cIowVjw/exec';
 
 async function cargarKPIs() {
   try {
     const res  = await fetch(API + '?path=dashboard');
-    const data = await res.json();
+    const txt  = await res.text();
+    // Apps Script devuelve HTML cuando falla: no intentar parsearlo
+    if (txt.trim().charAt(0) === '<') return;
+    const data = JSON.parse(txt);
     if (!data.ok) return;
     const k = data.data.kpis;
     document.getElementById('kpi-v').textContent = k.vencidos;

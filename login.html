@@ -90,7 +90,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-
 </div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbwRPKU-4hcREZmyWpnQlHG6EM0lBf7gePhfK4KfU_H2liqOcwEZSMM2ftqlPoNKTUOnEA/exec';
+const API = 'https://script.google.com/macros/s/AKfycbyJCaExjTC0rhQ-lIHXSZb0iuoddI0CNYktDmfZuSIfjzwPSF0IE-LJ-_cD7d4cIowVjw/exec';
 
 // Si ya hay sesión activa, redirigir
 const session = getSession();
@@ -142,7 +142,13 @@ async function doLogin() {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ path:'login', usuario, password }),
     });
-    const data = await res.json();
+    const txt = await res.text();
+
+    // Apps Script devuelve HTML cuando falla del lado del servidor
+    if (txt.trim().charAt(0) === '<') {
+      throw new Error('El servidor no respondió bien. Esperá unos segundos y probá de nuevo.');
+    }
+    const data = JSON.parse(txt);
 
     if (data.ok) {
       saveSession(data.data);
@@ -154,7 +160,7 @@ async function doLogin() {
       document.getElementById('inp-password').focus();
     }
   } catch(e) {
-    errEl.textContent = 'Error de conexión. Intentá de nuevo.';
+    errEl.textContent = e.message || 'Error de conexión. Intentá de nuevo.';
     errEl.classList.add('show');
   } finally {
     btn.disabled = false;
