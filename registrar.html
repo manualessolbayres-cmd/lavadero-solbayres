@@ -824,7 +824,7 @@ function fmtInterno(nro) {
 }
 
 // ── Config ───────────────────────────────────────────────────
-const API = 'https://script.google.com/macros/s/AKfycbyJCaExjTC0rhQ-lIHXSZb0iuoddI0CNYktDmfZuSIfjzwPSF0IE-LJ-_cD7d4cIowVjw/exec';
+const API = 'https://script.google.com/macros/s/AKfycbyRvl8Da4SOI3dfDw1kvvHx6s3bbMODUwZ9MOMd0K97KiR1ONxUBdHrk3BrGsoq9x0utA/exec';
 
 // ── Estado global ─────────────────────────────────────────────
 let state = {
@@ -954,6 +954,36 @@ function showPage(name) {
 }
 
 // ── Modal lavado ──────────────────────────────────────────────
+// Identifica al supervisor de la sesión actual.
+// Usa el vínculo directo usuario→supervisor; el resto son respaldos por
+// compatibilidad con usuarios creados antes de esa vinculación.
+function resolverSupervisorSesion() {
+  if (!session) return null;
+
+  // 1. Vínculo explícito (la vía correcta)
+  if (session.supervisor_id) {
+    const sup = state.supervisores.find(s => String(s.id) === String(session.supervisor_id));
+    if (sup) return sup;
+  }
+
+  // 2. Respaldo: nombre exacto
+  const nom = String(session.nombre || '').trim().toLowerCase();
+  if (nom) {
+    const exacto = state.supervisores.find(s => String(s.nombre || '').trim().toLowerCase() === nom);
+    if (exacto) return exacto;
+  }
+
+  // 3. Respaldo: único supervisor del turno. Si hay varios no se adivina,
+  //    porque elegir mal atribuiría el trabajo a otra persona.
+  const turnoSes = (session.turno && session.turno !== '') ? parseInt(session.turno) : null;
+  if (turnoSes) {
+    const delTurno = state.supervisores.filter(s => parseInt(s.turno) === turnoSes);
+    if (delTurno.length === 1) return delTurno[0];
+  }
+
+  return null;
+}
+
 function abrirModalLavado() {
   resetModalForm();
 
@@ -1040,19 +1070,14 @@ function resetModalForm() {
   let turnoSel = turnoSesion;
 
   if (esSup) {
-    // Buscar por turno de sesión primero, luego por nombre
-    let sup = turnoSesion
-      ? state.supervisores.find(s => parseInt(s.turno) === turnoSesion)
-      : null;
-    if (!sup) {
-      sup = state.supervisores.find(s =>
-        s.nombre.toLowerCase().includes((session?.nombre || '').toLowerCase())
-      );
-    }
+    const sup = resolverSupervisorSesion();
     if (sup) {
       supId    = String(sup.id);
       turnoSel = parseInt(sup.turno) || turnoSesion;
       document.getElementById('m-supervisor').value = supId;
+    } else {
+      // Sin vínculo no se puede saber a quién atribuir el lavado
+      toast('Tu usuario no está vinculado a un supervisor. Avisale al administrador.', 'fail');
     }
   }
 
@@ -1236,16 +1261,8 @@ function irAConfirmacion() {
   // Resolver turno y supervisor desde la tabla de supervisores (fuente de verdad)
   if (esSupervisor) {
     // Supervisor: turno y supervisor se autocompletan desde la sesión
-    let sup = null;
+    const sup = resolverSupervisorSesion();
     const turnoSes = (session?.turno && session.turno !== '') ? parseInt(session.turno) : null;
-    if (turnoSes) {
-      sup = state.supervisores.find(s => parseInt(s.turno) === turnoSes);
-    }
-    if (!sup) {
-      sup = state.supervisores.find(s =>
-        s.nombre.toLowerCase().includes((session?.nombre || '').toLowerCase())
-      );
-    }
     if (sup) {
       state.sel.supervisor = String(sup.id);
       state.sel.turno      = parseInt(sup.turno) || turnoSes || null;

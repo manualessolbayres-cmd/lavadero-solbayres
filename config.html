@@ -435,7 +435,7 @@ const session = requireAuth(['admin'], 'Configuración');
 if (!session) { throw new Error('Sin sesión'); }
 
 
-const API = 'https://script.google.com/macros/s/AKfycbyJCaExjTC0rhQ-lIHXSZb0iuoddI0CNYktDmfZuSIfjzwPSF0IE-LJ-_cD7d4cIowVjw/exec';
+const API = 'https://script.google.com/macros/s/AKfycbyRvl8Da4SOI3dfDw1kvvHx6s3bbMODUwZ9MOMd0K97KiR1ONxUBdHrk3BrGsoq9x0utA/exec';
 
 const COLORES_TIPO = ['#4A90D9','#7B68EE','#F5A623','#50C878','#E74C3C','#1ABC9C','#9B59B6','#E67E22','#3498DB','#E91E8C'];
 
@@ -888,6 +888,26 @@ function abrirModal(tipo, data = null) {
         '<div class="field-hint">El turno se usa para autocompletar el registro de lavado</div>' +
       '</div>';
 
+    // Vínculo con el supervisor: define a nombre de quién se registran los lavados
+    const opcionesSup = state.supervisores
+      .filter(s => esActivoVal(s.activo))
+      .sort((a, b) => (parseInt(a.turno) || 0) - (parseInt(b.turno) || 0) ||
+                       String(a.nombre).localeCompare(String(b.nombre)))
+      .map(s => '<option value="' + s.id + '"' +
+                (String(data?.supervisor_id) === String(s.id) ? ' selected' : '') + '>' +
+                esc(s.nombre) + ' — Turno ' + esc(s.turno) + '</option>')
+      .join('');
+
+    const supBlock = (data?.rol === 'supervisor' || (!data && true)) ?
+      '<div class="field" id="field-sup-usuario">' +
+        '<label>Vincular con supervisor</label>' +
+        '<select id="f-supervisor-usuario">' +
+          '<option value="">— Seleccioná el supervisor —</option>' +
+          opcionesSup +
+        '</select>' +
+        '<div class="field-hint">Los lavados que cargue este usuario se registran a nombre del supervisor elegido. Es obligatorio cuando hay más de un supervisor por turno.</div>' +
+      '</div>' : '';
+
     body.innerHTML =
       '<div class="field">' +
         '<label>Nombre completo</label>' +
@@ -911,7 +931,7 @@ function abrirModal(tipo, data = null) {
           '<option value="admin" '      + rolAdm + '>Administrador — acceso completo</option>' +
         '</select>' +
       '</div>' +
-      '<div id="turno-usuario-wrap">' + turnoBlock + '</div>';
+      '<div id="turno-usuario-wrap">' + turnoBlock + supBlock + '</div>';
 
     setTimeout(() => document.getElementById('f-nombre').focus(), 100);
   }
@@ -978,24 +998,47 @@ function abrirModal(tipo, data = null) {
   document.getElementById('modal-overlay').classList.add('open');
 }
 
+// Interpreta el campo activo con la misma tolerancia que el backend
+function esActivoVal(v) {
+  if (v === true)  return true;
+  if (v === false) return false;
+  const s = String(v).toLowerCase().trim();
+  if (s === '') return true;
+  return s === 'true' || s === 'verdadero' || s === 'si' || s === 'sí' || s === '1';
+}
+
 function toggleTurnoUsuario(rol) {
   const wrap = document.getElementById('turno-usuario-wrap');
   if (!wrap) return;
-  if (rol === 'supervisor') {
-    wrap.innerHTML =
-      '<div class="field" id="field-turno-usuario">' +
-        '<label>Turno</label>' +
-        '<select id="f-turno-usuario">' +
-          '<option value="">— Seleccioná el turno —</option>' +
-          '<option value="1">Turno 1 — Mañana</option>' +
-          '<option value="2">Turno 2 — Tarde</option>' +
-          '<option value="3">Turno 3 — Noche</option>' +
-        '</select>' +
-        '<div class="field-hint">El turno se usa para autocompletar el registro de lavado</div>' +
-      '</div>';
-  } else {
-    wrap.innerHTML = '';
-  }
+
+  if (rol !== 'supervisor') { wrap.innerHTML = ''; return; }
+
+  const opcionesSup = state.supervisores
+    .filter(s => esActivoVal(s.activo))
+    .sort((a, b) => (parseInt(a.turno) || 0) - (parseInt(b.turno) || 0) ||
+                     String(a.nombre).localeCompare(String(b.nombre)))
+    .map(s => '<option value="' + s.id + '">' + esc(s.nombre) + ' — Turno ' + esc(s.turno) + '</option>')
+    .join('');
+
+  wrap.innerHTML =
+    '<div class="field" id="field-turno-usuario">' +
+      '<label>Turno</label>' +
+      '<select id="f-turno-usuario">' +
+        '<option value="">— Seleccioná el turno —</option>' +
+        '<option value="1">Turno 1 — Mañana</option>' +
+        '<option value="2">Turno 2 — Tarde</option>' +
+        '<option value="3">Turno 3 — Noche</option>' +
+      '</select>' +
+      '<div class="field-hint">El turno se usa para autocompletar el registro de lavado</div>' +
+    '</div>' +
+    '<div class="field" id="field-sup-usuario">' +
+      '<label>Vincular con supervisor</label>' +
+      '<select id="f-supervisor-usuario">' +
+        '<option value="">— Seleccioná el supervisor —</option>' +
+        opcionesSup +
+      '</select>' +
+      '<div class="field-hint">Los lavados que cargue este usuario se registran a nombre del supervisor elegido. Es obligatorio cuando hay más de un supervisor por turno.</div>' +
+    '</div>';
 }
 
 function cerrarModal() {
@@ -1058,23 +1101,29 @@ async function confirmarModal() {
       const rol      = document.getElementById('f-rol').value;
       const turnoEl  = document.getElementById('f-turno-usuario');
       const turno    = turnoEl ? turnoEl.value : '';
+      const supEl    = document.getElementById('f-supervisor-usuario');
+      const supervisor_id = supEl ? supEl.value : '';
       if (!nombre)  { toast('Ingresá el nombre', 'fail'); return; }
       if (!usuario) { toast('Ingresá el usuario', 'fail'); return; }
       if (!rol)     { toast('Seleccioná el rol', 'fail'); return; }
       if (rol === 'supervisor' && !turno) { toast('Seleccioná el turno', 'fail'); return; }
+      // Sin este vínculo el sistema no sabe a nombre de quién registrar los lavados
+      if (rol === 'supervisor' && !supervisor_id) {
+        toast('Seleccioná con qué supervisor se vincula', 'fail'); return;
+      }
       // gerencia y admin pueden no tener turno asignado
       if (!state.editId && !password) { toast('Ingresá una contraseña', 'fail'); return; }
 
       if (state.editId) {
-        const body = { path:'usuarios', action:'update', id:state.editId, nombre, rol, turno };
+        const body = { path:'usuarios', action:'update', id:state.editId, nombre, rol, turno, supervisor_id };
         if (password) body.password = password;
         await apiPost(body);
         const u = state.usuarios.find(u => String(u.id) === String(state.editId));
-        if (u) { u.nombre = nombre; u.usuario = usuario; u.rol = rol; u.turno = turno; }
+        if (u) { u.nombre = nombre; u.usuario = usuario; u.rol = rol; u.turno = turno; u.supervisor_id = supervisor_id; }
         toast('Usuario actualizado', 'ok');
       } else {
-        const res = await apiPost({ path:'usuarios', action:'create', nombre, usuario, password, rol, turno });
-        state.usuarios.push({ id:res.id, nombre, usuario, rol, turno, activo:true });
+        const res = await apiPost({ path:'usuarios', action:'create', nombre, usuario, password, rol, turno, supervisor_id });
+        state.usuarios.push({ id:res.id, nombre, usuario, rol, turno, supervisor_id, activo:true });
         toast('Usuario @' + usuario + ' creado', 'ok');
       }
       renderUsuarios();
