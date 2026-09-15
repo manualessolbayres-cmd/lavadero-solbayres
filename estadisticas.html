@@ -184,7 +184,7 @@ main{padding:20px 20px 60px;max-width:1400px;margin:0 auto;}
 <div id="toast"></div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycbzrQn-3LVzLyZy-rRgvfWIcBhyoRHpnkQ3OCaIEQ4eUMvvSEn3xqiQCD02gFuRlpq1Ocg/exec';
+const API = 'https://script.google.com/macros/s/AKfycby0Oa8laXbmwjGpAzApYHTNCnyn3MkbF17UqGEu_VmRtQYNDBwk6p53UJ_nPPg9G0lSWw/exec';
 const AUTH_KEY = 'lav_session';
 
 function fmtInterno(nro) {
@@ -219,6 +219,12 @@ if (session && session.rol !== 'admin' && session.rol !== 'gerencia') {
 }
 
 // ── Estado ────────────────────────────────────────────────────
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                  .replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
+}
+
 let state = { registros:[], unidades:[], supervisores:[], tipos:[], charts:{} };
 
 function normalizarFecha(fecha) {
@@ -289,19 +295,12 @@ async function get(params) {
 // ── Init ──────────────────────────────────────────────────────
 async function init() {
   try {
-    // /init trae los datos maestros ya cacheados en el servidor;
-    // los registros completos van aparte porque estadísticas necesita el histórico entero
-    const [init, reg] = await Promise.all([
-      get({ path:'init', limit_registros: 1 }),
-      get({ path:'registros', action:'list', limit:9999 }),
-    ]);
-    const uni = init.unidades;
-    const sup = init.supervisores;
-    const tip = init.tipos;
-    state.registros    = reg;
-    state.unidades     = uni;
-    state.supervisores = sup;
-    state.tipos        = tip;
+    // Los indicadores se calculan en el servidor: el navegador ya no descarga
+    // el historial completo, solo los totales que necesita mostrar.
+    const init = await get({ path:'init', limit_registros: 1 });
+    state.unidades     = init.unidades;
+    state.supervisores = init.supervisores;
+    state.tipos        = init.tipos;
 
     // Defaults: último mes
     const hoy   = new Date();
@@ -339,40 +338,44 @@ function limpiarFiltros() {
   calcularStats();
 }
 
-function getRegistrosFiltrados() {
-  const desde = document.getElementById('f-desde').value;
-  const hasta = document.getElementById('f-hasta').value;
-  let items = state.registros;
-  if (desde) items = items.filter(r => r.fecha && normalizarFecha(r.fecha) >= desde);
-  if (hasta) items = items.filter(r => r.fecha && normalizarFecha(r.fecha) <= hasta);
-  return items;
-}
 
 // ── Calcular y renderizar ─────────────────────────────────────
-function calcularStats() {
-  const regs = getRegistrosFiltrados();
-  renderKPIs(regs);
-  renderChartTipos(regs);
-  renderChartTurnos(regs);
-  renderChartSemana(regs);
-  renderChartEvolucion(regs);
-  renderTablaSupervisores(regs);
-  renderTablaUnidades(regs);
-  renderTablaTipos(regs);
+async function calcularStats() {
+  const desde = document.getElementById('f-desde').value;
+  const hasta = document.getElementById('f-hasta').value;
+
+  const btn = document.querySelector('.btn-aplicar');
+  const txt = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Calculando...'; }
+
+  try {
+    const params = { path: 'stats' };
+    if (desde) params.desde = desde;
+    if (hasta) params.hasta = hasta;
+    const s = await get(params);
+
+    renderKPIs(s.kpis);
+    renderChartTipos(s.por_tipo);
+    renderChartTurnos(s.por_turno);
+    renderChartSemana(s.por_dia_semana);
+    renderChartEvolucion(s.evolucion);
+    renderTablaSupervisores(s.ranking_sup, s.kpis.total);
+    renderTablaUnidades(s.ranking_uni, s.kpis.total);
+    renderTablaTipos(s.por_tipo, s.kpis.total);
+  } catch(e) {
+    toast('Error al calcular: ' + e.message, 'fail');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = txt; }
+  }
 }
 
 // ── KPIs ──────────────────────────────────────────────────────
-function renderKPIs(regs) {
-  const uniqUnidades = new Set(regs.map(r => r.interno_id)).size;
-  const uniqDias     = new Set(regs.map(r => normalizarFecha(r.fecha)).filter(Boolean)).size;
-  const promDia      = uniqDias > 0 ? (regs.length / uniqDias).toFixed(1) : 0;
-  const uniqTipos    = new Set(regs.map(r => r.tipo_lavado)).size;
-
-  document.getElementById('s-total').textContent          = regs.length;
-  document.getElementById('s-unidades').textContent       = uniqUnidades;
-  document.getElementById('s-dias').textContent           = uniqDias;
-  document.getElementById('s-promdia').textContent        = promDia;
-  document.getElementById('s-tipos-distintos').textContent= uniqTipos;
+function renderKPIs(k) {
+  document.getElementById('s-total').textContent           = k.total;
+  document.getElementById('s-unidades').textContent        = k.unidades;
+  document.getElementById('s-dias').textContent            = k.dias;
+  document.getElementById('s-promdia').textContent         = k.promedio_dia;
+  document.getElementById('s-tipos-distintos').textContent = k.tipos_distintos;
 }
 
 // ── Helpers charts ────────────────────────────────────────────
@@ -398,87 +401,89 @@ function contarPor(regs, keyFn) {
 }
 
 // ── Gráfico: tipos ────────────────────────────────────────────
-function renderChartTipos(regs) {
+function renderChartTipos(porTipo) {
   destroyChart('tipos');
-  const conteo = contarPor(regs, r => r.tipo_lavado);
-  const tipos  = state.tipos.filter(t => conteo[t.slug]);
-  const ctx    = document.getElementById('chart-tipos').getContext('2d');
+  const datos = porTipo.filter(t => t.count > 0);
+  const ctx   = document.getElementById('chart-tipos').getContext('2d');
   state.charts['tipos'] = new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels:   tipos.map(t => t.nombre),
-      datasets: [{ data: tipos.map(t => conteo[t.slug] || 0), backgroundColor: tipos.map(t => t.color_badge + 'cc'), borderColor: tipos.map(t => t.color_badge), borderWidth: 2 }]
+      labels:   datos.map(t => t.nombre),
+      datasets: [{
+        data: datos.map(t => t.count),
+        backgroundColor: datos.map(t => t.color + 'cc'),
+        borderColor:     datos.map(t => t.color),
+        borderWidth: 2
+      }]
     },
     options: { ...DOUGHNUT_DEFAULTS, maintainAspectRatio: false }
   });
 }
 
 // ── Gráfico: turnos ───────────────────────────────────────────
-function renderChartTurnos(regs) {
+function renderChartTurnos(porTurno) {
   destroyChart('turnos');
-  const conteo  = contarPor(regs, r => r.turno);
-  const nombres = { 1:'Mañana', 2:'Tarde', 3:'Noche' };
-  const ctx     = document.getElementById('chart-turnos').getContext('2d');
+  const ctx = document.getElementById('chart-turnos').getContext('2d');
   state.charts['turnos'] = new Chart(ctx, {
     type: 'bar',
     data: {
       labels:   ['1 - Mañana', '2 - Tarde', '3 - Noche'],
-      datasets: [{ label: 'Lavados', data: [conteo[1]||conteo['1']||0, conteo[2]||conteo['2']||0, conteo[3]||conteo['3']||0], backgroundColor: ['#3fb95088','#d2992288','#4a90d988'], borderColor: ['#3fb950','#d29922','#4a90d9'], borderWidth: 2, borderRadius: 4 }]
+      datasets: [{
+        label: 'Lavados',
+        data: porTurno,
+        backgroundColor: ['#3fb95088','#d2992288','#4a90d988'],
+        borderColor:     ['#3fb950','#d29922','#4a90d9'],
+        borderWidth: 2, borderRadius: 4
+      }]
     },
     options: { ...CHART_DEFAULTS, maintainAspectRatio: false, plugins: { legend: { display: false } } }
   });
 }
 
 // ── Gráfico: día de semana ────────────────────────────────────
-function renderChartSemana(regs) {
+function renderChartSemana(conteo) {
   destroyChart('semana');
   const dias = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-  const conteo = [0,0,0,0,0,0,0];
-  regs.forEach(r => { if (r.fecha) { const d = new Date(normalizarFecha(r.fecha) + 'T00:00:00'); conteo[d.getDay()]++; } });
-  const ctx = document.getElementById('chart-semana').getContext('2d');
+  const ctx  = document.getElementById('chart-semana').getContext('2d');
   state.charts['semana'] = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels:   dias,
-      datasets: [{ label: 'Lavados', data: conteo, backgroundColor: '#E8A02044', borderColor: '#E8A020', borderWidth: 2, borderRadius: 4 }]
+      labels: dias,
+      datasets: [{ label: 'Lavados', data: conteo, backgroundColor: '#E8A02044',
+                   borderColor: '#E8A020', borderWidth: 2, borderRadius: 4 }]
     },
     options: { ...CHART_DEFAULTS, maintainAspectRatio: false, plugins: { legend: { display: false } } }
   });
 }
 
 // ── Gráfico: evolución diaria ─────────────────────────────────
-function renderChartEvolucion(regs) {
+function renderChartEvolucion(evolucion) {
   destroyChart('evolucion');
-  const conteo = {};
-  regs.forEach(r => { const d = normalizarFecha(r.fecha); if (d) conteo[d] = (conteo[d]||0)+1; });
-  const fechas = Object.keys(conteo).sort().slice(-30);
-  const ctx    = document.getElementById('chart-evolucion').getContext('2d');
+  const ctx = document.getElementById('chart-evolucion').getContext('2d');
   state.charts['evolucion'] = new Chart(ctx, {
     type: 'line',
     data: {
-      labels:   fechas.map(f => f.slice(5)),
-      datasets: [{ label: 'Lavados', data: fechas.map(f => conteo[f]), borderColor: '#E8A020', backgroundColor: '#E8A02015', fill: true, tension: .3, pointBackgroundColor: '#E8A020', pointRadius: 3 }]
+      labels: evolucion.map(e => e.fecha.slice(5)),
+      datasets: [{
+        label: 'Lavados', data: evolucion.map(e => e.count),
+        borderColor: '#E8A020', backgroundColor: '#E8A02015',
+        fill: true, tension: .3, pointBackgroundColor: '#E8A020', pointRadius: 3
+      }]
     },
     options: { ...CHART_DEFAULTS, maintainAspectRatio: false, plugins: { legend: { display: false } } }
   });
 }
 
 // ── Tabla: supervisores ───────────────────────────────────────
-function renderTablaSupervisores(regs) {
-  const conteo = contarPor(regs, r => String(r.supervisor_id));
-  const total  = regs.length;
-  const sorted = state.supervisores
-    .map(s => ({ ...s, count: conteo[String(s.id)] || 0 }))
-    .sort((a,b) => b.count - a.count);
-
-  document.getElementById('tabla-supervisores').innerHTML = sorted.length === 0
+function renderTablaSupervisores(ranking, total) {
+  document.getElementById('tabla-supervisores').innerHTML = ranking.length === 0
     ? '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Sin datos</div>'
-    : sorted.map((s, i) => {
+    : ranking.map((s, i) => {
         const pct = total > 0 ? ((s.count/total)*100).toFixed(1) : 0;
         return '<div class="tabla-row" style="grid-template-columns:40px 1fr 80px 80px 120px">' +
           '<span class="rank">' + (i+1) + '</span>' +
-          '<span style="font-weight:600">' + s.nombre + '</span>' +
-          '<span style="color:var(--muted)">T' + s.turno + '</span>' +
+          '<span style="font-weight:600">' + esc(s.nombre) + '</span>' +
+          '<span style="color:var(--muted)">T' + esc(s.turno) + '</span>' +
           '<span style="font-weight:700;color:var(--gold)">' + s.count + '</span>' +
           '<span style="color:var(--muted)">' + pct + '%</span>' +
         '</div>';
@@ -486,24 +491,14 @@ function renderTablaSupervisores(regs) {
 }
 
 // ── Tabla: unidades ───────────────────────────────────────────
-function renderTablaUnidades(regs) {
-  const conteo = contarPor(regs, r => String(r.interno_id));
-  const total  = regs.length;
-  const sorted = Object.entries(conteo)
-    .map(([id, count]) => {
-      const u = state.unidades.find(u => String(u.id) === id);
-      return { id, nro: u?.nro_interno || id, modelo: u?.modelo_nombre || '', count };
-    })
-    .sort((a,b) => b.count - a.count)
-    .slice(0, 15);
-
-  document.getElementById('tabla-unidades').innerHTML = sorted.length === 0
+function renderTablaUnidades(ranking, total) {
+  document.getElementById('tabla-unidades').innerHTML = ranking.length === 0
     ? '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Sin datos</div>'
-    : sorted.map((u, i) => {
+    : ranking.map((u, i) => {
         const pct = total > 0 ? ((u.count/total)*100).toFixed(1) : 0;
         return '<div class="tabla-row" style="grid-template-columns:40px 1fr 100px 120px">' +
           '<span class="rank">' + (i+1) + '</span>' +
-          '<span><strong>' + fmtInterno(u.nro) + '</strong> <span style="color:var(--muted);font-size:12px">' + u.modelo + '</span></span>' +
+          '<span><strong>' + fmtInterno(u.nro) + '</strong> <span style="color:var(--muted);font-size:12px">' + esc(u.modelo || '') + '</span></span>' +
           '<span style="font-weight:700;color:var(--gold)">' + u.count + '</span>' +
           '<span style="color:var(--muted)">' + pct + '%</span>' +
         '</div>';
@@ -511,26 +506,21 @@ function renderTablaUnidades(regs) {
 }
 
 // ── Tabla: tipos ──────────────────────────────────────────────
-function renderTablaTipos(regs) {
-  const conteo = contarPor(regs, r => r.tipo_lavado);
-  const total  = regs.length;
-  const sorted = state.tipos
-    .map(t => ({ ...t, count: conteo[t.slug] || 0 }))
-    .sort((a,b) => b.count - a.count);
-  const maxCount = sorted[0]?.count || 1;
-
+function renderTablaTipos(porTipo, total) {
+  const sorted   = porTipo.slice().sort((a,b) => b.count - a.count);
+  const maxCount = sorted.length ? sorted[0].count : 1;
   document.getElementById('tabla-tipos').innerHTML = sorted.length === 0
     ? '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">Sin datos</div>'
     : sorted.map(t => {
         const pct    = total > 0 ? ((t.count/total)*100).toFixed(1) : 0;
         const barPct = maxCount > 0 ? ((t.count/maxCount)*100).toFixed(0) : 0;
         return '<div class="tabla-row" style="grid-template-columns:14px 1fr 80px 1fr">' +
-          '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + t.color_badge + '"></span>' +
-          '<span style="font-weight:600">' + t.nombre + '</span>' +
+          '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + t.color + '"></span>' +
+          '<span style="font-weight:600">' + esc(t.nombre) + '</span>' +
           '<span style="font-weight:700;color:var(--gold)">' + t.count + '</span>' +
           '<div>' +
             '<div style="font-size:11px;color:var(--muted);margin-bottom:3px">' + pct + '%</div>' +
-            '<div class="bar-wrap"><div class="bar-fill" style="width:' + barPct + '%;background:' + t.color_badge + '"></div></div>' +
+            '<div class="bar-wrap"><div class="bar-fill" style="width:' + barPct + '%;background:' + t.color + '"></div></div>' +
           '</div>' +
         '</div>';
       }).join('');

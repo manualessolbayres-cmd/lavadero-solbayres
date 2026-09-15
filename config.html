@@ -435,7 +435,7 @@ const session = requireAuth(['admin'], 'Configuración');
 if (!session) { throw new Error('Sin sesión'); }
 
 
-const API = 'https://script.google.com/macros/s/AKfycbzrQn-3LVzLyZy-rRgvfWIcBhyoRHpnkQ3OCaIEQ4eUMvvSEn3xqiQCD02gFuRlpq1Ocg/exec';
+const API = 'https://script.google.com/macros/s/AKfycby0Oa8laXbmwjGpAzApYHTNCnyn3MkbF17UqGEu_VmRtQYNDBwk6p53UJ_nPPg9G0lSWw/exec';
 
 const COLORES_TIPO = ['#4A90D9','#7B68EE','#F5A623','#50C878','#E74C3C','#1ABC9C','#9B59B6','#E67E22','#3498DB','#E91E8C'];
 
@@ -532,32 +532,25 @@ async function apip(params) {
 // ── INIT ───────────────────────────────────────────────────────
 async function init() {
   try {
-    // Cargar datos principales
-    const [u, m, cr, s, t] = await Promise.all([
-      apig({ path:'unidades',    action:'list' }),
-      apig({ path:'modelos',     action:'list' }),
-      apig({ path:'cronogramas', action:'list' }),
-      apig({ path:'supervisores',action:'list' }),
-      apig({ path:'tipos_lavado',action:'list' }),
-    ]);
-    state.unidades     = u;
-    state.modelos      = m;
-    state.cronogramas  = cr;
-    state.supervisores = s;
-    state.tipos        = t;
+    // Una sola llamada trae todo lo que necesita Configuración
+    const d = await apig({ path: 'init_config' });
 
-    // Usuarios por separado — puede fallar si la sheet aún no existe
-    try {
-      const us = await apig({ path:'usuarios', action:'list' });
-      state.usuarios = us || [];
-    } catch(eu) {
-      state.usuarios = [];
-      console.warn('Sheet usuarios no disponible:', eu.message);
-    }
+    state.unidades     = d.unidades     || [];
+    state.modelos      = d.modelos      || [];
+    state.cronogramas  = d.cronogramas  || [];
+    state.supervisores = d.supervisores || [];
+    state.tipos        = d.tipos        || [];
+    state.usuarios     = d.usuarios     || [];
 
     renderAll();
     if (session) renderUserBadge(session, 'user-badge');
-    cargarEmailConfig();
+
+    // Config de email viene en la misma respuesta
+    if (d.email) {
+      const inp = document.getElementById('email-destinatarios');
+      if (inp) inp.value = d.email.destinatarios || '';
+      setEmailToggle(d.email.activo !== 'false');
+    }
 
   } catch(e) {
     toast('Error al cargar: ' + e.message, 'fail');
