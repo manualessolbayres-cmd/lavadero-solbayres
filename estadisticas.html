@@ -184,7 +184,7 @@ main{padding:20px 20px 60px;max-width:1400px;margin:0 auto;}
 <div id="toast"></div>
 
 <script>
-const API = 'https://script.google.com/macros/s/AKfycby0Oa8laXbmwjGpAzApYHTNCnyn3MkbF17UqGEu_VmRtQYNDBwk6p53UJ_nPPg9G0lSWw/exec';
+const API = 'https://script.google.com/macros/s/AKfycbxMJ7tJBgsUdy2piUAbKdkuxYSCfSwMaZFwuOqnIBfYFCaHOYKBqBvz2LItCO75Mn0L3A/exec';
 const AUTH_KEY = 'lav_session';
 
 function fmtInterno(nro) {
@@ -295,24 +295,30 @@ async function get(params) {
 // ── Init ──────────────────────────────────────────────────────
 async function init() {
   try {
-    // Los indicadores se calculan en el servidor: el navegador ya no descarga
-    // el historial completo, solo los totales que necesita mostrar.
-    const init = await get({ path:'init', limit_registros: 1 });
+    // Rango por defecto: último mes. Se define antes de pedir datos para que
+    // las dos consultas salgan juntas en vez de una después de la otra.
+    const hoy    = new Date();
+    const hace30 = new Date(hoy); hace30.setDate(hoy.getDate() - 30);
+    const desde  = hace30.toISOString().slice(0,10);
+    const hasta  = hoy.toISOString().slice(0,10);
+    document.getElementById('f-desde').value = desde;
+    document.getElementById('f-hasta').value = hasta;
+
+    // alertas:'false' evita que el servidor calcule algo que esta pantalla no usa
+    const [init, stats] = await Promise.all([
+      get({ path:'init', limit_registros: 0, alertas: 'false' }),
+      get({ path:'stats', desde: desde, hasta: hasta }),
+    ]);
+
     state.unidades     = init.unidades;
     state.supervisores = init.supervisores;
     state.tipos        = init.tipos;
-
-    // Defaults: último mes
-    const hoy   = new Date();
-    const hace30= new Date(hoy); hace30.setDate(hoy.getDate() - 30);
-    document.getElementById('f-desde').value = hace30.toISOString().slice(0,10);
-    document.getElementById('f-hasta').value = hoy.toISOString().slice(0,10);
 
     document.getElementById('loading-wrap').style.display = 'none';
     document.getElementById('contenido').style.display    = 'block';
 
     if (session) renderUserBadge();
-    calcularStats();
+    pintarStats(stats);
   } catch(e) {
     document.getElementById('loading-wrap').innerHTML = '<p style="color:var(--danger)">Error: ' + e.message + '</p>';
   }
@@ -340,6 +346,17 @@ function limpiarFiltros() {
 
 
 // ── Calcular y renderizar ─────────────────────────────────────
+function pintarStats(s) {
+  renderKPIs(s.kpis);
+  renderChartTipos(s.por_tipo);
+  renderChartTurnos(s.por_turno);
+  renderChartSemana(s.por_dia_semana);
+  renderChartEvolucion(s.evolucion);
+  renderTablaSupervisores(s.ranking_sup, s.kpis.total);
+  renderTablaUnidades(s.ranking_uni, s.kpis.total);
+  renderTablaTipos(s.por_tipo, s.kpis.total);
+}
+
 async function calcularStats() {
   const desde = document.getElementById('f-desde').value;
   const hasta = document.getElementById('f-hasta').value;
@@ -354,14 +371,7 @@ async function calcularStats() {
     if (hasta) params.hasta = hasta;
     const s = await get(params);
 
-    renderKPIs(s.kpis);
-    renderChartTipos(s.por_tipo);
-    renderChartTurnos(s.por_turno);
-    renderChartSemana(s.por_dia_semana);
-    renderChartEvolucion(s.evolucion);
-    renderTablaSupervisores(s.ranking_sup, s.kpis.total);
-    renderTablaUnidades(s.ranking_uni, s.kpis.total);
-    renderTablaTipos(s.por_tipo, s.kpis.total);
+    pintarStats(s);
   } catch(e) {
     toast('Error al calcular: ' + e.message, 'fail');
   } finally {
