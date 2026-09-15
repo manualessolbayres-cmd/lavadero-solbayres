@@ -824,7 +824,7 @@ function fmtInterno(nro) {
 }
 
 // ── Config ───────────────────────────────────────────────────
-const API = 'https://script.google.com/macros/s/AKfycbyRvl8Da4SOI3dfDw1kvvHx6s3bbMODUwZ9MOMd0K97KiR1ONxUBdHrk3BrGsoq9x0utA/exec';
+const API = 'https://script.google.com/macros/s/AKfycbzrQn-3LVzLyZy-rRgvfWIcBhyoRHpnkQ3OCaIEQ4eUMvvSEn3xqiQCD02gFuRlpq1Ocg/exec';
 
 // ── Estado global ─────────────────────────────────────────────
 let state = {
@@ -1033,6 +1033,8 @@ function cerrarModalLavado() {
   // Resetear botón guardar para próxima apertura
   const btnG = document.getElementById('m-btn-guardar');
   if (btnG) { btnG.disabled = false; btnG.textContent = '✓ Confirmar y guardar'; }
+  // Cerrar el modal cierra el intento: el próximo lavado usa identificadores nuevos
+  state.reqIds = {};
   // Volver siempre al paso 1
   document.getElementById('paso-form').style.display    = 'block';
   document.getElementById('paso-confirm').style.display = 'none';
@@ -1326,29 +1328,55 @@ function volverAlForm() {
 }
 
 // ── Guardar ────────────────────────────────────────────────────
+// Identificador único por cada lavado a guardar. Se mantiene entre reintentos
+// del mismo modal: si el primer intento llegó a guardar, el servidor lo reconoce
+// y no lo duplica.
+function idUnico() {
+  return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+
 async function guardarLavado() {
-  const { unidad, tipo, turno, supervisor, obs } = state.sel;
+  const { unidad, turno, supervisor, obs } = state.sel;
   const btn = document.getElementById('m-btn-guardar');
+  if (btn.disabled) return; // segunda pulsación mientras guarda
   btn.disabled = true;
   btn.textContent = 'Guardando...';
 
-  try {
-    const fechaVal  = document.getElementById('m-fecha')?.value || hoyISO();
-    const tiposArr  = state.sel.tipos || [];
+  const fechaVal = document.getElementById('m-fecha')?.value || hoyISO();
+  const tiposArr = state.sel.tipos || [];
 
-    // Registrar un entry por cada tipo seleccionado
-    await Promise.all(tiposArr.map(slug => apiPost({
-      path:          'registros',
-      action:        'create',
-      interno_id:    unidad.id,
-      tipo_lavado:   slug,
-      fecha:         fechaVal + ' 00:00:00',
-      turno:         turno,
-      supervisor_id: supervisor,
-      observaciones: obs || '',
-    })));
+  // Un identificador por tipo, estable mientras el modal siga abierto
+  if (!state.reqIds) state.reqIds = {};
+  tiposArr.forEach(slug => {
+    if (!state.reqIds[slug]) state.reqIds[slug] = idUnico();
+  });
 
+  const guardados = [];
+  const fallidos  = [];
+
+  // Secuencial: así se sabe exactamente cuáles entraron si algo falla
+  for (const slug of tiposArr) {
+    try {
+      await apiPost({
+        path:          'registros',
+        action:        'create',
+        interno_id:    unidad.id,
+        tipo_lavado:   slug,
+        fecha:         fechaVal + ' 00:00:00',
+        turno:         turno,
+        supervisor_id: supervisor,
+        observaciones: obs || '',
+        req_id:        state.reqIds[slug],
+      });
+      guardados.push(slug);
+    } catch(e) {
+      fallidos.push({ slug, msg: e.message });
+    }
+  }
+
+  if (fallidos.length === 0) {
     const nombresStr = tiposArr.map(s => tipoNombre(s)).join(', ');
+    state.reqIds = {};
     cerrarModalLavado();
     toast('✓ Interno ' + fmtInterno(unidad.nro_interno) + ' — ' + nombresStr + ' registrado', 'ok');
 
@@ -1363,11 +1391,15 @@ async function guardarLavado() {
       renderHistorial('');
       updateKPIs();
     });
-  } catch(e) {
-    toast('Error: ' + e.message, 'fail');
-  } finally {
+  } else {
+    // Quedan los identificadores: reintentar no duplica lo ya guardado
+    const nombresFall = fallidos.map(f => tipoNombre(f.slug)).join(', ');
+    const msg = guardados.length > 0
+      ? 'Faltó guardar: ' + nombresFall + '. Tocá guardar de nuevo (lo ya cargado no se duplica).'
+      : 'No se pudo guardar. Tocá guardar de nuevo.';
+    toast(msg, 'fail');
     btn.disabled = false;
-    btn.textContent = '✓ Confirmar y guardar';
+    btn.textContent = 'Reintentar';
   }
 }
 
