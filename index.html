@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d1117">
+<title>Lavadero — Solbayres</title>
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+  <link rel="icon" type="image/png" sizes="48x48" href="favicon-48.png">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <!-- Apple -->
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <!-- Android / PWA -->
+  <link rel="manifest" href="manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:     #0d1117;
+  --bg2:    #161b22;
+  --bg3:    #1e242d;
+  --border: #2a3140;
+  --text:   #e6edf3;
+  --muted:  #6e7f96;
+  --gold:   #E8A020;
+  --success:#3fb950;
+  --warning:#d29922;
+  --danger: #f85149;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Barlow', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 48px;
+}
+
+/* Logo */
+.logo-block { text-align: center; }
+.logo {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+.logo span { color: var(--gold); }
+.logo-sub {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: .3em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-top: 6px;
+}
+.logo-divider {
+  width: 40px;
+  height: 2px;
+  background: var(--border);
+  margin: 16px auto 0;
+  border-radius: 1px;
+}
+
+/* Cards de acceso */
+.access-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.access-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 22px 24px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  text-decoration: none;
+  color: var(--text);
+  transition: all .2s;
+  position: relative;
+  overflow: hidden;
+}
+.access-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--gold);
+  opacity: 0;
+  transition: opacity .2s;
+}
+.access-card:hover {
+  border-color: var(--gold);
+  transform: translateY(-1px);
+}
+.access-card:hover::after { opacity: .03; }
+.access-card:active { transform: scale(.98); }
+
+.card-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 22px;
+}
+.access-card.primary .card-icon {
+  background: rgba(232,160,32,.12);
+  border-color: rgba(232,160,32,.3);
+}
+
+.card-body { flex: 1; min-width: 0; }
+.card-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+.card-desc {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.card-arrow {
+  color: var(--muted);
+  flex-shrink: 0;
+  transition: transform .2s, color .2s;
+}
+.access-card:hover .card-arrow { transform: translateX(4px); color: var(--gold); }
+
+/* KPI mini */
+.kpi-mini {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+.kpi-m {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+}
+.kpi-m-num {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+}
+.kpi-m-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.kpi-m.danger  { border-color: rgba(248,81,73,.3);  }
+.kpi-m.warning { border-color: rgba(210,153,34,.3); }
+.kpi-m.ok      { border-color: rgba(63,185,80,.3);  }
+.kpi-m.danger  .kpi-m-num { color: var(--danger);  }
+.kpi-m.warning .kpi-m-num { color: var(--warning); }
+.kpi-m.ok      .kpi-m-num { color: var(--success); }
+
+.footer {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: .04em;
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Logo -->
+  <div class="logo-block">
+    <div class="logo">Lavadero <span>///</span> Solbayres</div>
+    <div class="logo-sub">Control de flota</div>
+    <div class="logo-divider"></div>
+  </div>
+
+  <!-- KPIs rápidos -->
+  <div class="kpi-mini">
+    <div class="kpi-m danger">
+      <div class="kpi-m-num" id="kpi-v">—</div>
+      <div class="kpi-m-label">Vencidos</div>
+    </div>
+    <div class="kpi-m warning">
+      <div class="kpi-m-num" id="kpi-p">—</div>
+      <div class="kpi-m-label">Por vencer</div>
+    </div>
+    <div class="kpi-m ok">
+      <div class="kpi-m-num" id="kpi-d">—</div>
+      <div class="kpi-m-label">Al día</div>
+    </div>
+  </div>
+
+  <!-- Accesos -->
+  <div class="access-cards">
+    <a class="access-card primary" href="registrar.html">
+      <div class="card-icon">✏️</div>
+      <div class="card-body">
+        <div class="card-title">Registrar lavado</div>
+        <div class="card-desc">Cargá el lavado de una unidad — supervisores de turno</div>
+      </div>
+      <svg class="card-arrow" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </a>
+
+    <a class="access-card" href="dashboard.html">
+      <div class="card-icon">📊</div>
+      <div class="card-body">
+        <div class="card-title">Tablero operativo</div>
+        <div class="card-desc">Estado de toda la flota, alertas y unidades críticas</div>
+      </div>
+      <svg class="card-arrow" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </a>
+
+    <a class="access-card" href="config.html" id="card-config" style="display:none">
+      <div class="card-icon">⚙️</div>
+      <div class="card-body">
+        <div class="card-title">Configuración</div>
+        <div class="card-desc">Unidades, modelos, cronogramas y supervisores</div>
+      </div>
+      <svg class="card-arrow" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </a>
+
+    <a class="access-card" href="estadisticas.html" id="card-stats" style="display:none">
+      <div class="card-icon">📈</div>
+      <div class="card-body">
+        <div class="card-title">Estadísticas</div>
+        <div class="card-desc">Análisis completo de lavados, turnos y rendimiento</div>
+      </div>
+      <svg class="card-arrow" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </a>
+  </div>
+
+  <div id="user-badge" style="margin-bottom:8px"></div>
+  <div class="footer">Solbayres · Sistema de lavadero</div>
+
+</div>
+
+<script>
+// ── AUTH MODULE ─────────────────────────────────────────────────
+// Incluir en index.html, registrar.html y config.html
+// dashboard.html es público, no necesita auth
+
+const AUTH_KEY = 'lav_session';
+const AUTH_TTL = 12 * 60 * 60 * 1000; // 12 horas
+
+function getSession() {
+  try {
+    const s = sessionStorage.getItem(AUTH_KEY);
+    if (!s) return null;
+    const parsed = JSON.parse(s);
+    if (Date.now() - parsed.ts > AUTH_TTL) {
+      sessionStorage.removeItem(AUTH_KEY);
+      return null;
+    }
+    return parsed;
+  } catch { return null; }
+}
+
+function requireAuth(rolesPermitidos, nombreModulo) {
+  const session = getSession();
+  if (!session) {
+    window.location.replace('login.html');
+    return null;
+  }
+  if (rolesPermitidos && !rolesPermitidos.includes(session.rol)) {
+    const param = nombreModulo ? '?modulo=' + encodeURIComponent(nombreModulo) : '';
+    window.location.replace('noautorizado.html' + param);
+    return null;
+  }
+  return session;
+}
+
+function logout() {
+  const s = getSession();
+  if (s && s.token) {
+    fetch(API + '?' + new URLSearchParams({ path: 'logout', token: s.token })).catch(() => {});
+  }
+  sessionStorage.removeItem(AUTH_KEY);
+  window.location.replace('login.html');
+}
+
+function renderUserBadge(session, containerId) {
+  const el = document.getElementById(containerId);
+  if (!el || !session) return;
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="text-align:right;line-height:1.2">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.03em">${session.nombre}</div>
+        <div style="font-size:11px;color:var(--muted);text-transform:capitalize">${session.rol}</div>
+      </div>
+      <button onclick="logout()" style="background:var(--bg3);border:1px solid var(--border);color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:6px 12px;border-radius:6px;cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">Salir</button>
+    </div>
+  `;
+}
+// ── FIN AUTH MODULE ─────────────────────────────────────────────
+
+
+const session = requireAuth(['supervisor','gerencia','admin'], 'Inicio');
+
+const API = 'https://script.google.com/macros/s/AKfycbzsyOMhN6x1IkpkJG9X7z-LS8O5kOZQpMwbQyXkpCbsQ7W_VqgaU9JYGgd53Yp2m5U1/exec';
+
+async function cargarKPIs() {
+  try {
+    const res  = await fetch(API + '?path=dashboard');
+    const txt  = await res.text();
+    // Apps Script devuelve HTML cuando falla: no intentar parsearlo
+    if (txt.trim().charAt(0) === '<') return;
+    const data = JSON.parse(txt);
+    if (!data.ok) return;
+    const k = data.data.kpis;
+    document.getElementById('kpi-v').textContent = k.vencidos;
+    document.getElementById('kpi-p').textContent = k.proximos;
+    document.getElementById('kpi-d').textContent = k.al_dia;
+  } catch(e) { /* silencioso */ }
+}
+
+if (session) {
+  renderUserBadge(session, 'user-badge');
+  // Mostrar cards según rol
+  if (session.rol === 'admin') {
+    document.getElementById('card-config').style.display = 'flex';
+    document.getElementById('card-stats').style.display  = 'flex';
+  }
+  if (session.rol === 'gerencia') {
+    document.getElementById('card-stats').style.display  = 'flex';
+  }
+}
+cargarKPIs();
+</script>
+</body>
+</html>
